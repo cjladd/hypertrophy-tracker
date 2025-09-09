@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, FlatList } from 'react-native';
-import { startWorkout, addSet, finishWorkout, getExercises } from '../lib/repo';
+﻿import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Button, FlatList, Text, TextInput, View } from 'react-native';
+import { addSet, finishWorkout, getExercises, startWorkout } from '../lib/repo';
 
 export default function LogScreen() {
     const [workoutId, setWorkoutId] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export default function LogScreen() {
         setWorkoutId(null);
         setSetIndex(1);
         setLogged([]);
+        router.push('/history'); // jump to history
     }
 
     return (
