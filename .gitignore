@@ -16,6 +16,7 @@ android/.gradle/
 android/app/build/
 ios/Pods/
 ios/build/
+.expo/
 
 # Env & secrets
 .env
