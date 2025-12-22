@@ -4,6 +4,7 @@ node_modules/
 .expo-shared/
 dist/
 build/
+context-notes/
 
 # OS/editor
 .DS_Store

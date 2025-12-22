@@ -1,4 +1,5 @@
 ﻿import ExercisePicker from "@/components/ExercisePicker";
+import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
 import { addSet, finishWorkout, startWorkout } from "@/lib/repo";
 import { Stack, router } from "expo-router";
 import { useState } from "react";
@@ -26,6 +27,7 @@ interface LoggedSet {
   weightKg: number;
   rpe?: number;
   isWarmup: boolean;
+  notes?: string;
 }
 
 export default function LogWorkoutScreen() {
@@ -38,8 +40,10 @@ export default function LogWorkoutScreen() {
   // Form state
   const [reps, setReps] = useState("10");
   const [weight, setWeight] = useState("100");
-  const [rpe, setRpe] = useState("");
+  const [rpe, setRpe] = useState<number | undefined>(undefined);
+  const [notes, setNotes] = useState("");
   const [isWarmup, setIsWarmup] = useState(false);
+  const [inlineStatus, setInlineStatus] = useState("");
 
   const handleStartWorkout = async () => {
     try {
@@ -62,14 +66,13 @@ export default function LogWorkoutScreen() {
 
     const repsNum = parseInt(reps);
     const weightNum = parseFloat(weight);
-    const rpeNum = rpe ? parseInt(rpe) : undefined;
 
     if (isNaN(repsNum) || isNaN(weightNum) || repsNum <= 0 || weightNum < 0) {
       Alert.alert("Error", "Please enter valid reps and weight");
       return;
     }
 
-    if (rpeNum && (rpeNum < 1 || rpeNum > 10)) {
+    if (rpe && (rpe < 1 || rpe > 10)) {
       Alert.alert("Error", "RPE must be between 1 and 10");
       return;
     }
@@ -83,8 +86,9 @@ export default function LogWorkoutScreen() {
         setIndex,
         reps: repsNum,
         weightKg: weightNum,
-        rpe: rpeNum,
+        rpe: rpe,
         isWarmup: isWarmup ? 1 : 0,
+        notes: notes.trim() || undefined,
       });
 
       setSets([
@@ -95,17 +99,19 @@ export default function LogWorkoutScreen() {
           setIndex,
           reps: repsNum,
           weightKg: weightNum,
-          rpe: rpeNum,
+          rpe: rpe,
           isWarmup,
+          notes: notes.trim() || undefined,
         },
       ]);
 
       // Reset form but keep weight
       setReps("10");
-      setRpe("");
+      setRpe(undefined);
+      setNotes("");
       setIsWarmup(false);
-
-      Alert.alert("Success", "Set logged!");
+      setInlineStatus("Set logged");
+      setTimeout(() => setInlineStatus(""), 1500);
     } catch (error) {
       Alert.alert("Error", "Failed to log set");
     }
@@ -196,18 +202,9 @@ export default function LogWorkoutScreen() {
                   placeholder="100"
                 />
               </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>RPE (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={rpe}
-                  onChangeText={setRpe}
-                  placeholder="8"
-                />
-              </View>
             </View>
+
+            <RPEPicker value={rpe} onChange={setRpe} />
 
             <TouchableOpacity
               style={styles.warmupToggle}
@@ -219,9 +216,24 @@ export default function LogWorkoutScreen() {
               <Text style={styles.warmupLabel}>Warmup Set</Text>
             </TouchableOpacity>
 
+            <View style={styles.notesContainer}>
+              <Text style={styles.inputLabel}>Notes (optional)</Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="e.g., felt strong, paused reps, etc."
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={2}
+              />
+            </View>
+
             <TouchableOpacity style={styles.addSetButton} onPress={handleAddSet}>
               <Text style={styles.addSetButtonText}>Add Set</Text>
             </TouchableOpacity>
+            {inlineStatus ? (
+              <Text style={styles.inlineStatus}>{inlineStatus}</Text>
+            ) : null}
           </View>
         )}
 
@@ -229,16 +241,41 @@ export default function LogWorkoutScreen() {
         {sets.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Logged Sets ({sets.length})</Text>
-            {sets.map((set, index) => (
-              <View key={index} style={[styles.setItem, set.isWarmup && styles.warmupSet]}>
-                <Text style={styles.setExercise}>{set.exerciseName}</Text>
-                <Text style={styles.setText}>
-                  Set {set.setIndex}: {set.reps} reps x {set.weightKg}kg
-                  {set.rpe && ` @ RPE ${set.rpe}`}
-                  {set.isWarmup && " (warmup)"}
-                </Text>
-              </View>
-            ))}
+            {sets.map((set, index) => {
+              const rpeColor = getRPEColor(set.rpe);
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.setItem,
+                    set.isWarmup && styles.warmupSet,
+                    { borderLeftColor: set.isWarmup ? "#FF9500" : rpeColor },
+                  ]}
+                >
+                  <View style={styles.setHeader}>
+                    <Text style={styles.setExercise}>{set.exerciseName}</Text>
+                    {set.isWarmup && (
+                      <View style={styles.warmupBadge}>
+                        <Text style={styles.warmupBadgeText}>WARMUP</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.setDetails}>
+                    <Text style={styles.setText}>
+                      Set {set.setIndex}: <Text style={styles.setTextBold}>{set.reps} reps × {set.weightKg}kg</Text>
+                    </Text>
+                    {set.rpe && (
+                      <View style={[styles.rpeBadge, { backgroundColor: rpeColor }]}>
+                        <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {set.notes && (
+                    <Text style={styles.setNotes}>Notes: {set.notes}</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -367,6 +404,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
+  notesContainer: {
+    marginBottom: 15,
+  },
+  notesInput: {
+    backgroundColor: "#f0f0f0",
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
   addSetButton: {
     backgroundColor: "#34C759",
     padding: 15,
@@ -378,27 +426,82 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  inlineStatus: {
+    marginTop: 8,
+    fontSize: 13,
+    color: "#4CAF50",
+    textAlign: "center",
+  },
   setItem: {
     backgroundColor: "#f9f9f9",
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    borderLeftWidth: 3,
+    borderLeftWidth: 4,
     borderLeftColor: "#007AFF",
   },
   warmupSet: {
-    borderLeftColor: "#FF9500",
     backgroundColor: "#FFF9F0",
   },
+  setHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   setExercise: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 3,
+    flex: 1,
+  },
+  warmupBadge: {
+    backgroundColor: "#FF9500",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  warmupBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "white",
+    letterSpacing: 0.5,
+  },
+  setDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
   },
   setText: {
     fontSize: 14,
     color: "#666",
+    flex: 1,
+  },
+  setTextBold: {
+    fontWeight: "700",
+    color: "#333",
+    fontSize: 15,
+  },
+  rpeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  rpeBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "white",
+  },
+  setNotes: {
+    fontSize: 13,
+    color: "#666",
+    fontStyle: "italic",
+    marginTop: 4,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
   },
   footer: {
     backgroundColor: "white",
@@ -418,4 +521,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
 

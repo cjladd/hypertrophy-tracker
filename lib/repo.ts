@@ -35,18 +35,18 @@ export async function startWorkout(splitDay?: string) {
 
 export async function addSet(args: {
   workoutId: string; exerciseId: string; setIndex: number;
-  reps: number; weightKg: number; rpe?: number; isWarmup?: 0|1;
+  reps: number; weightKg: number; rpe?: number; isWarmup?: 0|1; notes?: string;
 }) {
-  const { workoutId, exerciseId, setIndex, reps, weightKg, rpe, isWarmup = 0 } = args;
+  const { workoutId, exerciseId, setIndex, reps, weightKg, rpe, isWarmup = 0, notes } = args;
   const db = await getDB();
   const id = uuid();
   const createdAt = Date.now();
   try {
     await run(
       db,
-      `INSERT INTO sets (id, workout_id, exercise_id, set_index, reps, weight_kg, rpe, is_warmup, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?)`,
-      [id, workoutId, exerciseId, setIndex, reps, weightKg, rpe ?? null, isWarmup, createdAt]
+      `INSERT INTO sets (id, workout_id, exercise_id, set_index, reps, weight_kg, rpe, is_warmup, notes, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [id, workoutId, exerciseId, setIndex, reps, weightKg, rpe ?? null, isWarmup, notes ?? null, createdAt]
     );
   } catch (e) {
     console.warn('addSet error:', e);

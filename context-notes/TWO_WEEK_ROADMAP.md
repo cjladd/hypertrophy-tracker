@@ -26,16 +26,16 @@
 
 ---
 
-### Day 2 (Dec 12) – RPE & Warmup Integration
+### Day 2 (Dec 12) – RPE & Warmup Integration ✅
 **Focus:** Complete the logging UX with all schema fields
 
 **Tasks:**
-- [ ] Add RPE slider/picker to log screen
-- [ ] Add warmup set toggle to log screen
-- [ ] Update `addSet` calls to include RPE and warmup flags
-- [ ] Add visual distinction for warmup vs working sets in logged sets list
-- [ ] Add set notes functionality (quick notes per set)
-- [ ] Improve set display with better formatting (bold weight, color-coded RPE)
+- [x] Add RPE slider/picker to log screen
+- [x] Add warmup set toggle to log screen
+- [x] Update `addSet` calls to include RPE and warmup flags
+- [x] Add visual distinction for warmup vs working sets in logged sets list
+- [x] Add set notes functionality (quick notes per set)
+- [x] Improve set display with better formatting (bold weight, color-coded RPE)
 
 **Deliverables:**
 - Full logging capability (reps, weight, RPE, warmup)
