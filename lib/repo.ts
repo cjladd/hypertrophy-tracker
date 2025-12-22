@@ -84,9 +84,92 @@ export async function listRecentWorkouts(limit = 10) {
 export async function getExercises() {
   const db = await getDB();
   try {
-    return await all<{ id: string; name: string }>(db, 'SELECT id, name FROM exercises ORDER BY name ASC');
+    return await all<{ id: string; name: string; muscle_group: string; is_custom: number }>(
+      db, 
+      'SELECT id, name, muscle_group, is_custom FROM exercises ORDER BY name ASC'
+    );
   } catch (e) {
     console.warn('getExercises error:', e);
+    return [];
+  }
+}
+
+export async function getExercisesByMuscleGroup(muscleGroup: string) {
+  const db = await getDB();
+  try {
+    return await all<{ id: string; name: string; muscle_group: string }>(
+      db,
+      'SELECT id, name, muscle_group FROM exercises WHERE muscle_group = ? ORDER BY name ASC',
+      [muscleGroup]
+    );
+  } catch (e) {
+    console.warn('getExercisesByMuscleGroup error:', e);
+    return [];
+  }
+}
+
+export async function addExercise(name: string, muscleGroup: string, isCustom: boolean = true) {
+  const db = await getDB();
+  const id = uuid();
+  const createdAt = Date.now();
+  try {
+    await run(
+      db,
+      'INSERT INTO exercises (id, name, muscle_group, is_custom, created_at) VALUES (?,?,?,?,?)',
+      [id, name.trim(), muscleGroup.toLowerCase(), isCustom ? 1 : 0, createdAt]
+    );
+    return { id, name: name.trim(), muscle_group: muscleGroup.toLowerCase(), is_custom: isCustom ? 1 : 0 };
+  } catch (e) {
+    console.warn('addExercise error:', e);
+    throw e;
+  }
+}
+
+export async function updateExercise(id: string, name: string, muscleGroup: string) {
+  const db = await getDB();
+  try {
+    await run(
+      db,
+      'UPDATE exercises SET name = ?, muscle_group = ? WHERE id = ?',
+      [name.trim(), muscleGroup.toLowerCase(), id]
+    );
+  } catch (e) {
+    console.warn('updateExercise error:', e);
+    throw e;
+  }
+}
+
+export async function deleteExercise(id: string) {
+  const db = await getDB();
+  try {
+    // Check if exercise is used in any sets
+    const sets = await all<{ count: number }>(
+      db,
+      'SELECT COUNT(*) as count FROM sets WHERE exercise_id = ?',
+      [id]
+    );
+    
+    if ((sets?.[0]?.count ?? 0) > 0) {
+      throw new Error('Cannot delete exercise that has recorded sets');
+    }
+    
+    await run(db, 'DELETE FROM exercises WHERE id = ?', [id]);
+  } catch (e) {
+    console.warn('deleteExercise error:', e);
+    throw e;
+  }
+}
+
+export async function searchExercises(query: string) {
+  const db = await getDB();
+  try {
+    return await all<{ id: string; name: string; muscle_group: string; is_custom: number }>(
+      db,
+      'SELECT id, name, muscle_group, is_custom FROM exercises WHERE name LIKE ? ORDER BY name ASC',
+      [`%${query}%`]
+    );
+  } catch (e) {
+    console.warn('searchExercises error:', e);
     return [];
   }
 }

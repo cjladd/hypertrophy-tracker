@@ -1,12 +1,12 @@
-import { addSet, finishWorkout, getExercises, listRecentWorkouts, startWorkout } from "@/lib/repo";
-import { useEffect, useState } from "react";
-import { Button, ScrollView, StyleSheet, Text, View } from "react-native";
+﻿import { useEffect, useState } from "react";
+import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import { Link } from "expo-router";
+import { getExercises, listRecentWorkouts } from "@/lib/repo";
 
 export default function Index() {
   const [exercises, setExercises] = useState<any[]>([]);
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -26,53 +26,10 @@ export default function Index() {
     loadData();
   }, []);
 
-  const handleStartWorkout = async () => {
-    try {
-      const workout = await startWorkout("Push");
-      setCurrentWorkoutId(workout.id);
-      console.log("Started workout:", workout.id);
-      loadData();
-    } catch (error) {
-      console.error("Error starting workout:", error);
-    }
-  };
-
-  const handleAddSet = async () => {
-    if (!currentWorkoutId || exercises.length === 0) return;
-    
-    try {
-      await addSet({
-        workoutId: currentWorkoutId,
-        exerciseId: exercises[0].id,
-        setIndex: 1,
-        reps: 10,
-        weightKg: 100,
-        rpe: 8,
-        isWarmup: 0
-      });
-      console.log("Added set");
-    } catch (error) {
-      console.error("Error adding set:", error);
-    }
-  };
-
-  const handleFinishWorkout = async () => {
-    if (!currentWorkoutId) return;
-    
-    try {
-      await finishWorkout(currentWorkoutId);
-      setCurrentWorkoutId(null);
-      console.log("Finished workout");
-      loadData();
-    } catch (error) {
-      console.error("Error finishing workout:", error);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text>Loading...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -80,46 +37,80 @@ export default function Index() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Hypertrophy Tracker</Text>
-      <Text style={styles.subtitle}>Database Test Screen</Text>
-      
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Exercises ({exercises.length})</Text>
-        {exercises.map((ex) => (
-          <Text key={ex.id} style={styles.item}>• {ex.name}</Text>
-        ))}
+      <Text style={styles.subtitle}>Your workout companion</Text>
+
+      {/* Quick Actions */}
+      <View style={styles.actionsSection}>
+        <Link href="/log" asChild>
+          <TouchableOpacity style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Start Workout</Text>
+          </TouchableOpacity>
+        </Link>
+
+        <Link href="/exercises" asChild>
+          <TouchableOpacity style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Manage Exercises</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
 
+      {/* Stats Overview */}
+      <View style={styles.statsSection}>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{exercises.length}</Text>
+          <Text style={styles.statLabel}>Exercises</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{workouts.length}</Text>
+          <Text style={styles.statLabel}>Workouts</Text>
+        </View>
+      </View>
+
+      {/* Recent Workouts */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Workouts ({workouts.length})</Text>
+        <Text style={styles.sectionTitle}>Recent Workouts</Text>
         {workouts.length === 0 ? (
-          <Text style={styles.item}>No workouts yet</Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No workouts yet</Text>
+            <Text style={styles.emptySubtext}>Start your first workout to begin tracking!</Text>
+          </View>
         ) : (
           workouts.map((wk: any) => (
-            <Text key={wk.id} style={styles.item}>
-              • {new Date(wk.started_at).toLocaleDateString()} - {wk.split_day || 'No split'}
-            </Text>
+            <View key={wk.id} style={styles.workoutItem}>
+              <Text style={styles.workoutDate}>
+                {new Date(wk.started_at).toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </Text>
+              <Text style={styles.workoutInfo}>
+                {wk.split_day || "General"} - {wk.finished_at ? "Completed" : "In Progress"}
+              </Text>
+            </View>
           ))
         )}
       </View>
 
+      {/* Exercise Overview */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Test</Text>
-        {!currentWorkoutId ? (
-          <Button title="Start Workout" onPress={handleStartWorkout} />
-        ) : (
-          <>
-            <Text style={styles.status}>✓ Workout in progress</Text>
-            <Button title="Add Set" onPress={handleAddSet} />
-            <View style={{ height: 10 }} />
-            <Button title="Finish Workout" onPress={handleFinishWorkout} />
-          </>
+        <Text style={styles.sectionTitle}>Your Exercises</Text>
+        {exercises.slice(0, 5).map((ex) => (
+          <View key={ex.id} style={styles.exerciseItem}>
+            <Text style={styles.exerciseName}>{ex.name}</Text>
+            <View style={styles.muscleTag}>
+              <Text style={styles.muscleTagText}>{ex.muscle_group}</Text>
+            </View>
+          </View>
+        ))}
+        {exercises.length > 5 && (
+          <Link href="/exercises" asChild>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <Text style={styles.viewAllText}>View All ({exercises.length})</Text>
+            </TouchableOpacity>
+          </Link>
         )}
       </View>
-
-      <Text style={styles.footer}>
-        Database is working! ✓{"\n"}
-        Ready for feature development.
-      </Text>
     </ScrollView>
   );
 }
@@ -127,28 +118,94 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   content: {
     padding: 20,
   },
+  loadingText: {
+    textAlign: "center",
+    marginTop: 50,
+    fontSize: 16,
+    color: "#666",
+  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 5,
-    color: '#333',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
+    color: "#666",
+    marginBottom: 30,
+  },
+  actionsSection: {
+    marginBottom: 25,
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: "#007AFF",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primaryButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  secondaryButton: {
+    backgroundColor: "white",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#007AFF",
+  },
+  secondaryButtonText: {
+    color: "#007AFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  statsSection: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 25,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#007AFF",
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#666",
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -156,27 +213,69 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 15,
   },
-  item: {
-    fontSize: 14,
-    color: '#555',
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#999",
     marginBottom: 5,
   },
-  status: {
+  emptySubtext: {
     fontSize: 14,
-    color: '#4CAF50',
-    marginBottom: 10,
-    fontWeight: '600',
+    color: "#bbb",
   },
-  footer: {
-    textAlign: 'center',
-    color: '#4CAF50',
+  workoutItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  workoutDate: {
     fontSize: 16,
-    fontWeight: '600',
-    marginTop: 20,
-    marginBottom: 40,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 3,
+  },
+  workoutInfo: {
+    fontSize: 14,
+    color: "#666",
+  },
+  exerciseItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  exerciseName: {
+    fontSize: 15,
+    color: "#333",
+    flex: 1,
+  },
+  muscleTag: {
+    backgroundColor: "#E3F2FD",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  muscleTagText: {
+    fontSize: 12,
+    color: "#1976D2",
+    fontWeight: "500",
+  },
+  viewAllButton: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  viewAllText: {
+    color: "#007AFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
