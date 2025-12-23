@@ -52,6 +52,12 @@ export default function Index() {
             <Text style={styles.secondaryButtonText}>Manage Exercises</Text>
           </TouchableOpacity>
         </Link>
+
+        <Link href="/settings" asChild>
+          <TouchableOpacity style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Settings & Dev Tools</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
 
       {/* Stats Overview */}
