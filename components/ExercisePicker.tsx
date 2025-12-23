@@ -1,5 +1,6 @@
 ﻿// components/ExercisePicker.tsx
 import { getExercises } from "@/lib/repo";
+import { MUSCLE_GROUPS, type Exercise, type MuscleGroup } from "@/lib/types";
 import { useEffect, useState } from "react";
 import {
     FlatList,
@@ -12,14 +13,7 @@ import {
     View,
 } from "react-native";
 
-const MUSCLE_GROUPS = ["all", "chest", "back", "shoulders", "legs", "arms", "core", "other"];
-
-interface Exercise {
-  id: string;
-  name: string;
-  muscle_group: string;
-  is_custom: number;
-}
+const FILTER_OPTIONS: (MuscleGroup | "all")[] = ["all", ...MUSCLE_GROUPS];
 
 interface ExercisePickerProps {
   visible: boolean;
@@ -31,7 +25,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState("all");
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<MuscleGroup | "all">("all");
 
   useEffect(() => {
     if (visible) {
@@ -143,7 +137,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
           style={styles.filterContainer}
           contentContainerStyle={styles.filterContent}
         >
-          {MUSCLE_GROUPS.map((group) => (
+          {FILTER_OPTIONS.map((group) => (
             <TouchableOpacity
               key={group}
               style={[
@@ -158,7 +152,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
                   selectedMuscleGroup === group && styles.filterChipTextActive,
                 ]}
               >
-                {group.charAt(0).toUpperCase() + group.slice(1)}
+                {group.charAt(0).toUpperCase() + group.slice(1).replace('_', ' ')}
               </Text>
             </TouchableOpacity>
           ))}

@@ -20,52 +20,87 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
 
 async function initializeTables(db: SQLite.SQLiteDatabase) {
   try {
-    // Create exercises table
+    // Create exercises table (PRD §1)
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS exercises (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        muscle_group TEXT,
+        name TEXT NOT NULL UNIQUE,
+        muscle_group TEXT NOT NULL,
         is_custom INTEGER DEFAULT 0,
+        rep_range_min INTEGER DEFAULT 8,
+        rep_range_max INTEGER DEFAULT 12,
         created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
       );
     `);
 
-    // Create workouts table
+    // Create templates table (PRD §1)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        exercise_ids TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+      );
+    `);
+
+    // Create workouts table (PRD §1)
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS workouts (
         id TEXT PRIMARY KEY,
         started_at INTEGER NOT NULL,
-        finished_at INTEGER,
-        split_day TEXT,
-        notes TEXT
+        ended_at INTEGER,
+        template_id TEXT,
+        notes TEXT,
+        FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
       );
     `);
 
-    // Create sets table
+    // Create workout_exercises junction table (PRD §1)
     await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS sets (
+      CREATE TABLE IF NOT EXISTS workout_exercises (
         id TEXT PRIMARY KEY,
         workout_id TEXT NOT NULL,
         exercise_id TEXT NOT NULL,
-        set_index INTEGER NOT NULL,
-        reps INTEGER NOT NULL,
-        weight_kg REAL NOT NULL,
-        rpe INTEGER,
-        is_warmup INTEGER DEFAULT 0,
-        notes TEXT,
-        created_at INTEGER NOT NULL,
+        order_index INTEGER NOT NULL,
         FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Create sets table - working sets only (PRD §1)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sets (
+        id TEXT PRIMARY KEY,
+        workout_exercise_id TEXT NOT NULL,
+        set_index INTEGER NOT NULL,
+        weight_lb REAL NOT NULL,
+        reps INTEGER NOT NULL,
+        rpe REAL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Create progression_state table (PRD §1)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS progression_state (
+        exercise_id TEXT PRIMARY KEY,
+        last_suggested_weight_lb REAL,
+        last_successful_weight_lb REAL,
+        consecutive_non_success_exposures INTEGER DEFAULT 0,
         FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
       );
     `);
 
     // Create indexes for better query performance
     await db.execAsync(`
-      CREATE INDEX IF NOT EXISTS idx_sets_workout ON sets(workout_id);
-      CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id);
+      CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id);
+      CREATE INDEX IF NOT EXISTS idx_workout_exercises_exercise ON workout_exercises(exercise_id);
+      CREATE INDEX IF NOT EXISTS idx_sets_workout_exercise ON sets(workout_exercise_id);
       CREATE INDEX IF NOT EXISTS idx_workouts_started ON workouts(started_at);
+      CREATE INDEX IF NOT EXISTS idx_workouts_template ON workouts(template_id);
       CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
+      CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
     `);
 
     console.log('Database tables initialized successfully');
@@ -83,5 +118,25 @@ export async function closeDB() {
     } catch (error) {
       console.error('Failed to close database:', error);
     }
+  }
+}
+
+// Reset database for development (drops all tables and recreates)
+export async function resetDB(): Promise<void> {
+  const db = await getDB();
+  try {
+    await db.execAsync(`
+      DROP TABLE IF EXISTS sets;
+      DROP TABLE IF EXISTS workout_exercises;
+      DROP TABLE IF EXISTS progression_state;
+      DROP TABLE IF EXISTS workouts;
+      DROP TABLE IF EXISTS templates;
+      DROP TABLE IF EXISTS exercises;
+    `);
+    await initializeTables(db);
+    console.log('Database reset successfully');
+  } catch (error) {
+    console.error('Failed to reset database:', error);
+    throw error;
   }
 }

@@ -1,6 +1,17 @@
-﻿import ExercisePicker from "@/components/ExercisePicker";
+// app/log.tsx
+// Workout logging screen aligned with PRD v1
+// No warmups, no per-set notes, working sets only, weightLb
+
+import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
-import { addSet, finishWorkout, startWorkout } from "@/lib/repo";
+import {
+    addSet,
+    addWorkoutExercise,
+    finishWorkout,
+    getLastWeightForExercise,
+    startWorkout
+} from "@/lib/repo";
+import type { Exercise, Set, WorkoutExercise } from "@/lib/types";
 import { Stack, router } from "expo-router";
 import { useState } from "react";
 import {
@@ -13,36 +24,22 @@ import {
     View,
 } from "react-native";
 
-interface Exercise {
-  id: string;
-  name: string;
-  muscle_group: string;
-}
-
-interface LoggedSet {
-  exerciseId: string;
-  exerciseName: string;
-  setIndex: number;
-  reps: number;
-  weightKg: number;
-  rpe?: number;
-  isWarmup: boolean;
-  notes?: string;
+interface WorkoutExerciseWithSets extends WorkoutExercise {
+  exercise: Exercise;
+  sets: Set[];
 }
 
 export default function LogWorkoutScreen() {
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [workoutStarted, setWorkoutStarted] = useState(false);
-  const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null);
-  const [sets, setSets] = useState<LoggedSet[]>([]);
+  const [workoutExercises, setWorkoutExercises] = useState<WorkoutExerciseWithSets[]>([]);
+  const [currentWorkoutExercise, setCurrentWorkoutExercise] = useState<WorkoutExerciseWithSets | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
-  
+
   // Form state
   const [reps, setReps] = useState("10");
-  const [weight, setWeight] = useState("100");
+  const [weight, setWeight] = useState("");
   const [rpe, setRpe] = useState<number | undefined>(undefined);
-  const [notes, setNotes] = useState("");
-  const [isWarmup, setIsWarmup] = useState(false);
   const [inlineStatus, setInlineStatus] = useState("");
 
   const handleStartWorkout = async () => {
@@ -50,67 +47,93 @@ export default function LogWorkoutScreen() {
       const workout = await startWorkout();
       setWorkoutId(workout.id);
       setWorkoutStarted(true);
-      Alert.alert("Success", "Workout started!");
     } catch (error) {
       Alert.alert("Error", "Failed to start workout");
     }
   };
 
-  const handleSelectExercise = (exercise: Exercise) => {
-    setCurrentExercise(exercise);
-    setPickerVisible(false);
+  const handleSelectExercise = async (exercise: Exercise) => {
+    if (!workoutId) return;
+
+    // Check if exercise already added to this workout
+    const existing = workoutExercises.find((we) => we.exercise_id === exercise.id);
+    if (existing) {
+      setCurrentWorkoutExercise(existing);
+      setPickerVisible(false);
+      // Pre-fill weight from last set in current workout
+      if (existing.sets.length > 0) {
+        setWeight(String(existing.sets[existing.sets.length - 1].weight_lb));
+      }
+      return;
+    }
+
+    // Add new exercise to workout
+    try {
+      const orderIndex = workoutExercises.length;
+      const workoutExercise = await addWorkoutExercise(workoutId, exercise.id, orderIndex);
+
+      // Get last weight used for this exercise (from previous workouts)
+      const lastWeight = await getLastWeightForExercise(exercise.id);
+
+      const newWorkoutExercise: WorkoutExerciseWithSets = {
+        ...workoutExercise,
+        exercise,
+        sets: [],
+      };
+
+      setWorkoutExercises([...workoutExercises, newWorkoutExercise]);
+      setCurrentWorkoutExercise(newWorkoutExercise);
+      setWeight(lastWeight ? String(lastWeight) : "");
+      setPickerVisible(false);
+    } catch (error) {
+      Alert.alert("Error", "Failed to add exercise");
+    }
   };
 
   const handleAddSet = async () => {
-    if (!workoutId || !currentExercise) return;
+    if (!workoutId || !currentWorkoutExercise) return;
 
     const repsNum = parseInt(reps);
     const weightNum = parseFloat(weight);
 
-    if (isNaN(repsNum) || isNaN(weightNum) || repsNum <= 0 || weightNum < 0) {
-      Alert.alert("Error", "Please enter valid reps and weight");
+    if (isNaN(repsNum) || repsNum <= 0) {
+      Alert.alert("Error", "Please enter valid reps");
       return;
     }
 
-    if (rpe && (rpe < 1 || rpe > 10)) {
-      Alert.alert("Error", "RPE must be between 1 and 10");
+    if (isNaN(weightNum) || weightNum < 0) {
+      Alert.alert("Error", "Please enter valid weight");
       return;
     }
 
     try {
-      const setIndex = sets.filter((s) => s.exerciseId === currentExercise.id).length + 1;
-      
-      await addSet({
-        workoutId,
-        exerciseId: currentExercise.id,
+      const setIndex = currentWorkoutExercise.sets.length + 1;
+
+      const newSet = await addSet({
+        workoutExerciseId: currentWorkoutExercise.id,
         setIndex,
+        weightLb: weightNum,
         reps: repsNum,
-        weightKg: weightNum,
         rpe: rpe,
-        isWarmup: isWarmup ? 1 : 0,
-        notes: notes.trim() || undefined,
       });
 
-      setSets([
-        ...sets,
-        {
-          exerciseId: currentExercise.id,
-          exerciseName: currentExercise.name,
-          setIndex,
-          reps: repsNum,
-          weightKg: weightNum,
-          rpe: rpe,
-          isWarmup,
-          notes: notes.trim() || undefined,
-        },
-      ]);
+      // Update local state
+      const updatedWorkoutExercise = {
+        ...currentWorkoutExercise,
+        sets: [...currentWorkoutExercise.sets, newSet],
+      };
 
-      // Reset form but keep weight
+      setWorkoutExercises(
+        workoutExercises.map((we) =>
+          we.id === currentWorkoutExercise.id ? updatedWorkoutExercise : we
+        )
+      );
+      setCurrentWorkoutExercise(updatedWorkoutExercise);
+
+      // Reset form (keep weight for next set)
       setReps("10");
       setRpe(undefined);
-      setNotes("");
-      setIsWarmup(false);
-      setInlineStatus("Set logged");
+      setInlineStatus("Set logged ✓");
       setTimeout(() => setInlineStatus(""), 1500);
     } catch (error) {
       Alert.alert("Error", "Failed to log set");
@@ -119,6 +142,12 @@ export default function LogWorkoutScreen() {
 
   const handleFinishWorkout = async () => {
     if (!workoutId) return;
+
+    const totalSets = workoutExercises.reduce((sum, we) => sum + we.sets.length, 0);
+    if (totalSets === 0) {
+      Alert.alert("No Sets", "Log at least one set before finishing.");
+      return;
+    }
 
     Alert.alert(
       "Finish Workout",
@@ -130,9 +159,7 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await finishWorkout(workoutId);
-              Alert.alert("Success", "Workout finished!", [
-                { text: "OK", onPress: () => router.back() },
-              ]);
+              router.back();
             } catch (error) {
               Alert.alert("Error", "Failed to finish workout");
             }
@@ -141,6 +168,8 @@ export default function LogWorkoutScreen() {
       ]
     );
   };
+
+  const getTotalSets = () => workoutExercises.reduce((sum, we) => sum + we.sets.length, 0);
 
   if (!workoutStarted) {
     return (
@@ -170,16 +199,20 @@ export default function LogWorkoutScreen() {
             onPress={() => setPickerVisible(true)}
           >
             <Text style={styles.exerciseButtonText}>
-              {currentExercise ? currentExercise.name : "Select Exercise"}
+              {currentWorkoutExercise
+                ? currentWorkoutExercise.exercise.name
+                : "Select Exercise"}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Set Input */}
-        {currentExercise && (
+        {currentWorkoutExercise && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Log Set</Text>
-            
+            <Text style={styles.sectionTitle}>
+              Log Set for {currentWorkoutExercise.exercise.name}
+            </Text>
+
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Reps</Text>
@@ -193,40 +226,18 @@ export default function LogWorkoutScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Weight (kg)</Text>
+                <Text style={styles.inputLabel}>Weight (lb)</Text>
                 <TextInput
                   style={styles.input}
                   keyboardType="numeric"
                   value={weight}
                   onChangeText={setWeight}
-                  placeholder="100"
+                  placeholder="135"
                 />
               </View>
             </View>
 
             <RPEPicker value={rpe} onChange={setRpe} />
-
-            <TouchableOpacity
-              style={styles.warmupToggle}
-              onPress={() => setIsWarmup(!isWarmup)}
-            >
-              <View style={[styles.checkbox, isWarmup && styles.checkboxChecked]}>
-                {isWarmup && <Text style={styles.checkmark}>X</Text>}
-              </View>
-              <Text style={styles.warmupLabel}>Warmup Set</Text>
-            </TouchableOpacity>
-
-            <View style={styles.notesContainer}>
-              <Text style={styles.inputLabel}>Notes (optional)</Text>
-              <TextInput
-                style={styles.notesInput}
-                placeholder="e.g., felt strong, paused reps, etc."
-                value={notes}
-                onChangeText={setNotes}
-                multiline
-                numberOfLines={2}
-              />
-            </View>
 
             <TouchableOpacity style={styles.addSetButton} onPress={handleAddSet}>
               <Text style={styles.addSetButtonText}>Add Set</Text>
@@ -237,51 +248,57 @@ export default function LogWorkoutScreen() {
           </View>
         )}
 
-        {/* Logged Sets */}
-        {sets.length > 0 && (
+        {/* Logged Sets by Exercise */}
+        {workoutExercises.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Logged Sets ({sets.length})</Text>
-            {sets.map((set, index) => {
-              const rpeColor = getRPEColor(set.rpe);
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.setItem,
-                    set.isWarmup && styles.warmupSet,
-                    { borderLeftColor: set.isWarmup ? "#FF9500" : rpeColor },
-                  ]}
+            <Text style={styles.sectionTitle}>
+              Logged Sets ({getTotalSets()})
+            </Text>
+            {workoutExercises.map((we) => (
+              <View key={we.id} style={styles.exerciseGroup}>
+                <TouchableOpacity
+                  style={styles.exerciseHeader}
+                  onPress={() => {
+                    setCurrentWorkoutExercise(we);
+                    if (we.sets.length > 0) {
+                      setWeight(String(we.sets[we.sets.length - 1].weight_lb));
+                    }
+                  }}
                 >
-                  <View style={styles.setHeader}>
-                    <Text style={styles.setExercise}>{set.exerciseName}</Text>
-                    {set.isWarmup && (
-                      <View style={styles.warmupBadge}>
-                        <Text style={styles.warmupBadgeText}>WARMUP</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.setDetails}>
-                    <Text style={styles.setText}>
-                      Set {set.setIndex}: <Text style={styles.setTextBold}>{set.reps} reps × {set.weightKg}kg</Text>
-                    </Text>
-                    {set.rpe && (
-                      <View style={[styles.rpeBadge, { backgroundColor: rpeColor }]}>
-                        <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {set.notes && (
-                    <Text style={styles.setNotes}>Notes: {set.notes}</Text>
-                  )}
-                </View>
-              );
-            })}
+                  <Text style={styles.exerciseGroupName}>{we.exercise.name}</Text>
+                  <Text style={styles.exerciseSetCount}>
+                    {we.sets.length} set{we.sets.length !== 1 ? "s" : ""}
+                  </Text>
+                </TouchableOpacity>
+                {we.sets.map((set) => {
+                  const rpeColor = getRPEColor(set.rpe ?? undefined);
+                  return (
+                    <View
+                      key={set.id}
+                      style={[styles.setItem, { borderLeftColor: rpeColor }]}
+                    >
+                      <Text style={styles.setText}>
+                        Set {set.set_index}:{" "}
+                        <Text style={styles.setTextBold}>
+                          {set.reps} × {set.weight_lb} lb
+                        </Text>
+                      </Text>
+                      {set.rpe && (
+                        <View style={[styles.rpeBadge, { backgroundColor: rpeColor }]}>
+                          <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>
 
       {/* Finish Button */}
-      {sets.length > 0 && (
+      {getTotalSets() > 0 && (
         <View style={styles.footer}>
           <TouchableOpacity style={styles.finishButton} onPress={handleFinishWorkout}>
             <Text style={styles.finishButtonText}>Finish Workout</Text>
@@ -376,50 +393,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
   },
-  warmupToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: "#ccc",
-    borderRadius: 4,
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
-  },
-  checkmark: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  warmupLabel: {
-    fontSize: 16,
-    color: "#333",
-  },
-  notesContainer: {
-    marginBottom: 15,
-  },
-  notesInput: {
-    backgroundColor: "#f0f0f0",
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 14,
-    minHeight: 60,
-    textAlignVertical: "top",
-  },
   addSetButton: {
     backgroundColor: "#34C759",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
+    marginTop: 10,
   },
   addSetButtonText: {
     color: "white",
@@ -432,46 +411,38 @@ const styles = StyleSheet.create({
     color: "#4CAF50",
     textAlign: "center",
   },
-  setItem: {
-    backgroundColor: "#f9f9f9",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#007AFF",
+  exerciseGroup: {
+    marginBottom: 15,
   },
-  warmupSet: {
-    backgroundColor: "#FFF9F0",
-  },
-  setHeader: {
+  exerciseHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    marginBottom: 8,
   },
-  setExercise: {
-    fontSize: 15,
+  exerciseGroupName: {
+    fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    flex: 1,
   },
-  warmupBadge: {
-    backgroundColor: "#FF9500",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
+  exerciseSetCount: {
+    fontSize: 14,
+    color: "#666",
   },
-  warmupBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "white",
-    letterSpacing: 0.5,
-  },
-  setDetails: {
+  setItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    backgroundColor: "#f9f9f9",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 6,
+    borderLeftWidth: 4,
+    borderLeftColor: "#007AFF",
   },
   setText: {
     fontSize: 14,
@@ -481,7 +452,6 @@ const styles = StyleSheet.create({
   setTextBold: {
     fontWeight: "700",
     color: "#333",
-    fontSize: 15,
   },
   rpeBadge: {
     paddingHorizontal: 8,
@@ -493,15 +463,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "white",
-  },
-  setNotes: {
-    fontSize: 13,
-    color: "#666",
-    fontStyle: "italic",
-    marginTop: 4,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
   },
   footer: {
     backgroundColor: "white",
@@ -521,5 +482,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
-

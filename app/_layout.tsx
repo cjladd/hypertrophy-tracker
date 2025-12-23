@@ -1,13 +1,13 @@
 import { SettingsProvider } from "@/context/SettingsContext";
-import { seedIfNeeded } from "@/lib/repo";
+import { seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 
 export default function RootLayout() {
   useEffect(() => {
-    // Initialize database and seed if needed
-    seedIfNeeded().catch((err) => {
-      console.error("Failed to initialize database:", err);
+    // Initialize database and seed exercises if needed
+    seedExercises().catch((err) => {
+      console.error("Failed to seed exercises:", err);
     });
   }, []);
 

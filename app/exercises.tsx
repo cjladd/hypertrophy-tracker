@@ -4,6 +4,7 @@ import {
     getExercises,
     updateExercise
 } from "@/lib/repo";
+import { MUSCLE_GROUPS, type Exercise, type MuscleGroup } from "@/lib/types";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -18,32 +19,15 @@ import {
     View,
 } from "react-native";
 
-const MUSCLE_GROUPS = [
-  "chest",
-  "back",
-  "shoulders",
-  "legs",
-  "arms",
-  "core",
-  "other",
-];
-
-interface Exercise {
-  id: string;
-  name: string;
-  muscle_group: string;
-  is_custom: number;
-}
-
 export default function ExercisesScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string | null>(null);
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<MuscleGroup | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [formName, setFormName] = useState("");
-  const [formMuscleGroup, setFormMuscleGroup] = useState("chest");
+  const [formMuscleGroup, setFormMuscleGroup] = useState<MuscleGroup>("chest");
 
   useEffect(() => {
     loadExercises();
@@ -105,9 +89,9 @@ export default function ExercisesScreen() {
 
     try {
       if (editingExercise) {
-        await updateExercise(editingExercise.id, normalizedName, formMuscleGroup);
+        await updateExercise(editingExercise.id, { name: normalizedName, muscleGroup: formMuscleGroup });
       } else {
-        await addExercise(normalizedName, formMuscleGroup, true);
+        await addExercise(normalizedName, formMuscleGroup);
       }
       
       setModalVisible(false);
@@ -225,7 +209,7 @@ export default function ExercisesScreen() {
                 selectedMuscleGroup === group && styles.filterChipTextActive,
               ]}
             >
-              {group.charAt(0).toUpperCase() + group.slice(1)}
+              {group.charAt(0).toUpperCase() + group.slice(1).replace('_', ' ')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -288,7 +272,7 @@ export default function ExercisesScreen() {
                       formMuscleGroup === group && styles.muscleGroupOptionTextActive,
                     ]}
                   >
-                    {group.charAt(0).toUpperCase() + group.slice(1)}
+                    {group.charAt(0).toUpperCase() + group.slice(1).replace('_', ' ')}
                   </Text>
                 </TouchableOpacity>
               ))}

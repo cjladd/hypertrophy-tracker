@@ -1,7 +1,7 @@
-﻿import { useEffect, useState } from "react";
-import { Text, View, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+﻿import { getExercises, listRecentWorkouts } from "@/lib/repo";
 import { Link } from "expo-router";
-import { getExercises, listRecentWorkouts } from "@/lib/repo";
+import { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
   const [exercises, setExercises] = useState<any[]>([]);
@@ -85,7 +85,7 @@ export default function Index() {
                 })}
               </Text>
               <Text style={styles.workoutInfo}>
-                {wk.split_day || "General"} - {wk.finished_at ? "Completed" : "In Progress"}
+                {wk.ended_at ? "Completed" : "In Progress"}
               </Text>
             </View>
           ))
