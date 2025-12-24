@@ -1,19 +1,16 @@
-﻿import { getExercises, listRecentWorkouts } from "@/lib/repo";
-import { Link } from "expo-router";
-import { useEffect, useState } from "react";
+﻿import { listRecentWorkouts } from "@/lib/repo";
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
-  const [exercises, setExercises] = useState<any[]>([]);
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const ex = await getExercises();
-      const wk = await listRecentWorkouts(5);
-      setExercises(ex);
+      const wk = await listRecentWorkouts(10);
       setWorkouts(wk);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -22,9 +19,32 @@ export default function Index() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Reload data when screen comes into focus (e.g., after finishing workout)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
+
+  // Calculate useful stats
+  const getLastWorkoutText = () => {
+    const completed = workouts.filter((w) => w.ended_at);
+    if (completed.length === 0) return "Never";
+    const last = new Date(completed[0].ended_at);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    return `${diffDays}d ago`;
+  };
+
+  const getThisWeekCount = () => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+    return workouts.filter((w) => w.ended_at && new Date(w.ended_at) >= startOfWeek).length;
+  };
 
   if (loading) {
     return (
@@ -63,58 +83,39 @@ export default function Index() {
       {/* Stats Overview */}
       <View style={styles.statsSection}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{exercises.length}</Text>
-          <Text style={styles.statLabel}>Exercises</Text>
+          <Text style={styles.statNumber}>{getLastWorkoutText()}</Text>
+          <Text style={styles.statLabel}>Last Workout</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{workouts.length}</Text>
-          <Text style={styles.statLabel}>Workouts</Text>
+          <Text style={styles.statNumber}>{getThisWeekCount()}</Text>
+          <Text style={styles.statLabel}>This Week</Text>
         </View>
       </View>
 
       {/* Recent Workouts */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Workouts</Text>
-        {workouts.length === 0 ? (
+        {workouts.filter((w) => w.ended_at).length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No workouts yet</Text>
             <Text style={styles.emptySubtext}>Start your first workout to begin tracking!</Text>
           </View>
         ) : (
-          workouts.map((wk: any) => (
-            <View key={wk.id} style={styles.workoutItem}>
-              <Text style={styles.workoutDate}>
-                {new Date(wk.started_at).toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </Text>
-              <Text style={styles.workoutInfo}>
-                {wk.ended_at ? "Completed" : "In Progress"}
-              </Text>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Exercise Overview */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Your Exercises</Text>
-        {exercises.slice(0, 5).map((ex) => (
-          <View key={ex.id} style={styles.exerciseItem}>
-            <Text style={styles.exerciseName}>{ex.name}</Text>
-            <View style={styles.muscleTag}>
-              <Text style={styles.muscleTagText}>{ex.muscle_group}</Text>
-            </View>
-          </View>
-        ))}
-        {exercises.length > 5 && (
-          <Link href="/exercises" asChild>
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View All ({exercises.length})</Text>
-            </TouchableOpacity>
-          </Link>
+          workouts
+            .filter((w) => w.ended_at)
+            .slice(0, 5)
+            .map((wk: any) => (
+              <View key={wk.id} style={styles.workoutItem}>
+                <Text style={styles.workoutDate}>
+                  {new Date(wk.started_at).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </Text>
+                <Text style={styles.workoutInfo}>Completed</Text>
+              </View>
+            ))
         )}
       </View>
     </ScrollView>
@@ -250,38 +251,5 @@ const styles = StyleSheet.create({
   workoutInfo: {
     fontSize: 14,
     color: "#666",
-  },
-  exerciseItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  exerciseName: {
-    fontSize: 15,
-    color: "#333",
-    flex: 1,
-  },
-  muscleTag: {
-    backgroundColor: "#E3F2FD",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  muscleTagText: {
-    fontSize: 12,
-    color: "#1976D2",
-    fontWeight: "500",
-  },
-  viewAllButton: {
-    marginTop: 10,
-    alignItems: "center",
-  },
-  viewAllText: {
-    color: "#007AFF",
-    fontSize: 14,
-    fontWeight: "600",
   },
 });
