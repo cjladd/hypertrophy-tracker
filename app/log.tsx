@@ -8,13 +8,15 @@ import {
     addSet,
     addWorkoutExercise,
     createTemplate,
+    deleteSet,
     finishWorkout,
     getExercises,
     getLastWeightForExercise,
     getLastWorkoutExerciseIds,
     getTemplates,
     removeWorkoutExercise,
-    startWorkout
+    startWorkout,
+    updateSet
 } from "@/lib/repo";
 import type { Exercise, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Stack, router } from "expo-router";
@@ -62,6 +64,14 @@ export default function LogWorkoutScreen() {
   const [weight, setWeight] = useState("");
   const [rpe, setRpe] = useState<number | undefined>(undefined);
   const [inlineStatus, setInlineStatus] = useState("");
+
+  // Edit set modal state
+  const [editSetModalVisible, setEditSetModalVisible] = useState(false);
+  const [editingSet, setEditingSet] = useState<Set | null>(null);
+  const [editingWorkoutExercise, setEditingWorkoutExercise] = useState<WorkoutExerciseWithSets | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editReps, setEditReps] = useState("");
+  const [editRpe, setEditRpe] = useState<string>("");
 
   // Load data for start screen
   useEffect(() => {
@@ -170,15 +180,8 @@ export default function LogWorkoutScreen() {
     // Check if exercise already added to this workout
     const existing = workoutExercises.find((we) => we.exercise_id === exercise.id);
     if (existing) {
-      setCurrentWorkoutExercise(existing);
+      await selectWorkoutExercise(existing);
       setPickerVisible(false);
-      // Pre-fill from last set in current workout (weight, reps, RPE)
-      if (existing.sets.length > 0) {
-        const lastSet = existing.sets[existing.sets.length - 1];
-        setWeight(String(lastSet.weight_lb));
-        setReps(String(lastSet.reps));
-        setRpe(lastSet.rpe ?? undefined);
-      }
       return;
     }
 
@@ -203,6 +206,22 @@ export default function LogWorkoutScreen() {
     } catch (error) {
       Alert.alert("Error", "Failed to add exercise");
     }
+  };
+
+  const selectWorkoutExercise = async (workoutExercise: WorkoutExerciseWithSets) => {
+    setCurrentWorkoutExercise(workoutExercise);
+    if (workoutExercise.sets.length > 0) {
+      const lastSet = workoutExercise.sets[workoutExercise.sets.length - 1];
+      setWeight(String(lastSet.weight_lb));
+      setReps(String(lastSet.reps));
+      setRpe(lastSet.rpe ?? undefined);
+      return;
+    }
+
+    const lastWeight = await getLastWeightForExercise(workoutExercise.exercise_id);
+    setWeight(lastWeight ? String(lastWeight) : "");
+    setReps("10");
+    setRpe(undefined);
   };
 
   const handleAddSet = async () => {
@@ -246,7 +265,7 @@ export default function LogWorkoutScreen() {
       setCurrentWorkoutExercise(updatedWorkoutExercise);
 
       // Keep weight, reps, and RPE for next set (same exercise pattern)
-      setInlineStatus("Set logged ✓");
+      setInlineStatus("Set logged");
       setTimeout(() => setInlineStatus(""), 1500);
     } catch (error) {
       Alert.alert("Error", "Failed to log set");
@@ -254,6 +273,106 @@ export default function LogWorkoutScreen() {
   };
 
   const getTotalSets = () => workoutExercises.reduce((sum, we) => sum + we.sets.length, 0);
+
+  // Edit set handlers
+  const openEditSet = (set: Set, workoutExercise: WorkoutExerciseWithSets) => {
+    setEditingSet(set);
+    setEditingWorkoutExercise(workoutExercise);
+    setEditWeight(String(set.weight_lb));
+    setEditReps(String(set.reps));
+    setEditRpe(set.rpe !== null ? String(set.rpe) : "");
+    setEditSetModalVisible(true);
+  };
+
+  const closeEditSet = () => {
+    setEditSetModalVisible(false);
+    setEditingSet(null);
+    setEditingWorkoutExercise(null);
+  };
+
+  const handleSaveEditSet = async () => {
+    if (!editingSet || !editingWorkoutExercise) return;
+
+    const weightNum = parseFloat(editWeight);
+    const repsNum = parseInt(editReps, 10);
+    const rpeNum = editRpe ? parseFloat(editRpe) : null;
+
+    if (isNaN(weightNum) || weightNum < 0) {
+      Alert.alert("Invalid Weight", "Please enter a valid weight");
+      return;
+    }
+    if (isNaN(repsNum) || repsNum <= 0) {
+      Alert.alert("Invalid Reps", "Please enter a valid number of reps");
+      return;
+    }
+    if (rpeNum !== null && (rpeNum < 1 || rpeNum > 10)) {
+      Alert.alert("Invalid RPE", "RPE must be between 1 and 10");
+      return;
+    }
+
+    try {
+      await updateSet(editingSet.id, {
+        weightLb: weightNum,
+        reps: repsNum,
+        rpe: rpeNum,
+      });
+
+      // Update local state
+      const updatedSets = editingWorkoutExercise.sets.map((s) =>
+        s.id === editingSet.id
+          ? { ...s, weight_lb: weightNum, reps: repsNum, rpe: rpeNum }
+          : s
+      );
+      const updatedWorkoutExercise = { ...editingWorkoutExercise, sets: updatedSets };
+
+      setWorkoutExercises((prev) =>
+        prev.map((we) => (we.id === editingWorkoutExercise.id ? updatedWorkoutExercise : we))
+      );
+
+      if (currentWorkoutExercise?.id === editingWorkoutExercise.id) {
+        setCurrentWorkoutExercise(updatedWorkoutExercise);
+      }
+
+      closeEditSet();
+    } catch (error) {
+      Alert.alert("Error", "Failed to update set");
+    }
+  };
+
+  const handleDeleteEditSet = async () => {
+    if (!editingSet || !editingWorkoutExercise) return;
+
+    Alert.alert("Delete Set", "Are you sure you want to delete this set?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteSet(editingSet.id);
+
+            // Update local state - remove the set and re-index remaining sets
+            const updatedSets = editingWorkoutExercise.sets
+              .filter((s) => s.id !== editingSet.id)
+              .map((s, idx) => ({ ...s, set_index: idx + 1 }));
+            const updatedWorkoutExercise = { ...editingWorkoutExercise, sets: updatedSets };
+
+            setWorkoutExercises((prev) =>
+              prev.map((we) => (we.id === editingWorkoutExercise.id ? updatedWorkoutExercise : we))
+            );
+
+            if (currentWorkoutExercise?.id === editingWorkoutExercise.id) {
+              setCurrentWorkoutExercise(updatedWorkoutExercise);
+            }
+
+            closeEditSet();
+          } catch (error) {
+            Alert.alert("Error", "Failed to delete set");
+          }
+        },
+      },
+    ]);
+  };
 
   const handleRemoveExercise = (workoutExerciseId: string) => {
     const we = workoutExercises.find((w) => w.id === workoutExerciseId);
@@ -386,7 +505,7 @@ export default function LogWorkoutScreen() {
               style={[styles.startOptionButton, styles.startOptionPrimary]}
               onPress={() => handleStartWorkout('repeat')}
             >
-              <Text style={styles.startOptionIcon}>🔁</Text>
+              <Text style={styles.startOptionIcon}>R</Text>
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Repeat Last Workout</Text>
                 <Text style={styles.startOptionDesc}>Same exercises as your last session</Text>
@@ -400,7 +519,7 @@ export default function LogWorkoutScreen() {
               style={[styles.startOptionButton, styles.startOptionSecondary]}
               onPress={() => setTemplatePickerVisible(true)}
             >
-              <Text style={styles.startOptionIcon}>📋</Text>
+              <Text style={styles.startOptionIcon}>T</Text>
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Choose Template</Text>
                 <Text style={styles.startOptionDesc}>{templates.length} saved template{templates.length !== 1 ? 's' : ''}</Text>
@@ -413,7 +532,7 @@ export default function LogWorkoutScreen() {
             style={[styles.startOptionButton, styles.startOptionEmpty]}
             onPress={() => handleStartWorkout('empty')}
           >
-            <Text style={styles.startOptionIcon}>➕</Text>
+            <Text style={styles.startOptionIcon}>+</Text>
             <View style={styles.startOptionContent}>
               <Text style={styles.startOptionTitle}>Start Empty</Text>
               <Text style={styles.startOptionDesc}>Add exercises as you go</Text>
@@ -533,22 +652,14 @@ export default function LogWorkoutScreen() {
         {workoutExercises.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Exercises ({workoutExercises.length}) • Sets ({getTotalSets()})
+              Exercises ({workoutExercises.length}) / Sets ({getTotalSets()})
             </Text>
             {workoutExercises.map((we) => (
               <View key={we.id} style={styles.exerciseGroup}>
                 <View style={styles.exerciseHeaderRow}>
                   <TouchableOpacity
                     style={styles.exerciseHeader}
-                    onPress={() => {
-                      setCurrentWorkoutExercise(we);
-                      if (we.sets.length > 0) {
-                        const lastSet = we.sets[we.sets.length - 1];
-                        setWeight(String(lastSet.weight_lb));
-                        setReps(String(lastSet.reps));
-                        setRpe(lastSet.rpe ?? undefined);
-                      }
-                    }}
+                    onPress={() => void selectWorkoutExercise(we)}
                   >
                     <Text style={styles.exerciseGroupName}>{we.exercise.name}</Text>
                     <Text style={styles.exerciseSetCount}>
@@ -559,20 +670,21 @@ export default function LogWorkoutScreen() {
                     style={styles.removeExerciseButton}
                     onPress={() => handleRemoveExercise(we.id)}
                   >
-                    <Text style={styles.removeExerciseText}>✕</Text>
+                    <Text style={styles.removeExerciseText}>X</Text>
                   </TouchableOpacity>
                 </View>
                 {we.sets.map((set) => {
                   const rpeColor = getRPEColor(set.rpe ?? undefined);
                   return (
-                    <View
+                    <TouchableOpacity
                       key={set.id}
                       style={[styles.setItem, { borderLeftColor: rpeColor }]}
+                      onPress={() => openEditSet(set, we)}
                     >
                       <Text style={styles.setText}>
                         Set {set.set_index}:{" "}
                         <Text style={styles.setTextBold}>
-                          {set.reps} × {set.weight_lb} lb
+                          {set.reps} x {set.weight_lb} lb
                         </Text>
                       </Text>
                       {set.rpe && (
@@ -580,7 +692,8 @@ export default function LogWorkoutScreen() {
                           <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
                         </View>
                       )}
-                    </View>
+                      <Text style={styles.editHint}>Edit</Text>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -637,6 +750,69 @@ export default function LogWorkoutScreen() {
                 disabled={!templateName.trim()}
               >
                 <Text style={styles.saveTemplateSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Set Modal */}
+      <Modal
+        visible={editSetModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={closeEditSet}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editSetModal}>
+            <Text style={styles.editSetTitle}>Edit Set</Text>
+
+            <View style={styles.editSetFormRow}>
+              <Text style={styles.editSetLabel}>Weight (lb)</Text>
+              <TextInput
+                style={styles.editSetInput}
+                value={editWeight}
+                onChangeText={setEditWeight}
+                keyboardType="decimal-pad"
+                placeholder="0"
+              />
+            </View>
+
+            <View style={styles.editSetFormRow}>
+              <Text style={styles.editSetLabel}>Reps</Text>
+              <TextInput
+                style={styles.editSetInput}
+                value={editReps}
+                onChangeText={setEditReps}
+                keyboardType="number-pad"
+                placeholder="0"
+              />
+            </View>
+
+            <View style={styles.editSetFormRow}>
+              <Text style={styles.editSetLabel}>RPE (optional)</Text>
+              <TextInput
+                style={styles.editSetInput}
+                value={editRpe}
+                onChangeText={setEditRpe}
+                keyboardType="decimal-pad"
+                placeholder="optional"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.editSetDeleteButton}
+              onPress={handleDeleteEditSet}
+            >
+              <Text style={styles.editSetDeleteText}>Delete Set</Text>
+            </TouchableOpacity>
+
+            <View style={styles.editSetButtons}>
+              <TouchableOpacity style={styles.editSetCancelButton} onPress={closeEditSet}>
+                <Text style={styles.editSetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editSetSaveButton} onPress={handleSaveEditSet}>
+                <Text style={styles.editSetSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -948,6 +1124,80 @@ const styles = StyleSheet.create({
   },
   saveTemplateSaveText: {
     fontSize: 16,
+    color: "white",
+    fontWeight: "600",
+  },
+  editHint: {
+    fontSize: 14,
+    color: "#999",
+    marginLeft: 8,
+  },
+  editSetModal: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+  },
+  editSetTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  editSetFormRow: {
+    marginBottom: 16,
+  },
+  editSetLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 6,
+  },
+  editSetInput: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
+  editSetDeleteButton: {
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FF3B30",
+    marginBottom: 12,
+  },
+  editSetDeleteText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    fontWeight: "600",
+  },
+  editSetButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  editSetCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  editSetCancelText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "600",
+  },
+  editSetSaveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 8,
+    backgroundColor: "#007AFF",
+  },
+  editSetSaveText: {
+    fontSize: 14,
     color: "white",
     fontWeight: "600",
   },

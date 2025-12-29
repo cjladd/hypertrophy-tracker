@@ -1,6 +1,6 @@
 # Hypertrophy Tracker (Expo + SQLite)
 
-Offline-first workout logger focused on hypertrophy progression. See `PRD.md` for the current spec.
+Offline-first workout logger focused on hypertrophy progression. See `PRD.md` and `prog_engine.md` for the current spec.
 
 ## Setup
 - Install deps: `npm install`

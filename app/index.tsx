@@ -67,6 +67,12 @@ export default function Index() {
           </TouchableOpacity>
         </Link>
 
+        <Link href="/history" asChild>
+          <TouchableOpacity style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>History</Text>
+          </TouchableOpacity>
+        </Link>
+
         <Link href="/exercises" asChild>
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Manage Exercises</Text>
@@ -94,7 +100,16 @@ export default function Index() {
 
       {/* Recent Workouts */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Workouts</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Workouts</Text>
+          {workouts.filter((w) => w.ended_at).length > 0 && (
+            <Link href="/history" asChild>
+              <TouchableOpacity>
+                <Text style={styles.viewAllLink}>View All</Text>
+              </TouchableOpacity>
+            </Link>
+          )}
+        </View>
         {workouts.filter((w) => w.ended_at).length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No workouts yet</Text>
@@ -105,16 +120,18 @@ export default function Index() {
             .filter((w) => w.ended_at)
             .slice(0, 5)
             .map((wk: any) => (
-              <View key={wk.id} style={styles.workoutItem}>
-                <Text style={styles.workoutDate}>
-                  {new Date(wk.started_at).toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Text>
-                <Text style={styles.workoutInfo}>Completed</Text>
-              </View>
+              <Link key={wk.id} href="/history" asChild>
+                <TouchableOpacity style={styles.workoutItem}>
+                  <Text style={styles.workoutDate}>
+                    {new Date(wk.started_at).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </Text>
+                  <Text style={styles.workoutInfo}>Completed</Text>
+                </TouchableOpacity>
+              </Link>
             ))
         )}
       </View>
@@ -218,11 +235,20 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 15,
+  },
+  viewAllLink: {
+    fontSize: 14,
+    color: "#007AFF",
   },
   emptyState: {
     alignItems: "center",
