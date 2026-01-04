@@ -10,15 +10,21 @@ import {
     createTemplate,
     deleteSet,
     finishWorkout,
+    getDefaultRoutine,
     getExercises,
     getLastWeightForExercise,
     getLastWorkoutExerciseIds,
+    getNextRoutineDay,
+    getRoutineDayById,
+    getTemplate,
     getTemplates,
     removeWorkoutExercise,
     startWorkout,
-    updateSet
+    startWorkoutFromRoutineDay,
+    updateSet,
+    updateTemplate
 } from "@/lib/repo";
-import type { Exercise, Set, Template, WorkoutExercise } from "@/lib/types";
+import type { Exercise, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -37,13 +43,14 @@ interface WorkoutExerciseWithSets extends WorkoutExercise {
   sets: Set[];
 }
 
-type StartMode = 'empty' | 'repeat' | 'template';
+type StartMode = 'empty' | 'repeat' | 'template' | 'routine';
 
 export default function LogWorkoutScreen() {
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [workoutStarted, setWorkoutStarted] = useState(false);
   const [startMode, setStartMode] = useState<StartMode | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [routineDayId, setRoutineDayId] = useState<string | null>(null); // Track routine day
   const [workoutExercises, setWorkoutExercises] = useState<WorkoutExerciseWithSets[]>([]);
   const [currentWorkoutExercise, setCurrentWorkoutExercise] = useState<WorkoutExerciseWithSets | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -53,6 +60,10 @@ export default function LogWorkoutScreen() {
   const [hasLastWorkout, setHasLastWorkout] = useState(false);
   const [templatePickerVisible, setTemplatePickerVisible] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+
+  // Routine state (split_migration.md §4)
+  const [defaultRoutine, setDefaultRoutine] = useState<Routine | null>(null);
+  const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
 
   // Template save modal state
   const [saveTemplateModalVisible, setSaveTemplateModalVisible] = useState(false);
@@ -77,14 +88,22 @@ export default function LogWorkoutScreen() {
   useEffect(() => {
     const loadStartData = async () => {
       try {
-        const [templatesData, lastExerciseIds, exercisesData] = await Promise.all([
+        const [templatesData, lastExerciseIds, exercisesData, routine] = await Promise.all([
           getTemplates(),
           getLastWorkoutExerciseIds(),
           getExercises(),
+          getDefaultRoutine(),
         ]);
         setTemplates(templatesData);
         setHasLastWorkout(lastExerciseIds.length > 0);
         setAllExercises(exercisesData);
+        setDefaultRoutine(routine);
+
+        // Get next routine day if routine exists
+        if (routine) {
+          const nextDay = await getNextRoutineDay(routine.id);
+          setNextRoutineDay(nextDay);
+        }
       } catch (error) {
         console.error("Failed to load start data:", error);
       }
@@ -92,12 +111,35 @@ export default function LogWorkoutScreen() {
     loadStartData();
   }, []);
 
+  // Start workout from routine day (split_migration.md §4)
+  const handleStartRoutineWorkout = async () => {
+    if (!nextRoutineDay) return;
+
+    try {
+      const workout = await startWorkoutFromRoutineDay(nextRoutineDay.id);
+      setWorkoutId(workout.id);
+      setStartMode('routine');
+      setRoutineDayId(nextRoutineDay.id);
+      setTemplateId(workout.template_id);
+
+      // Populate exercises from routine day's template
+      if (workout.template_id) {
+        await populateFromTemplate(workout.id, workout.template_id);
+      }
+
+      setWorkoutStarted(true);
+    } catch (error) {
+      Alert.alert("Error", "Failed to start workout");
+    }
+  };
+
   const handleStartWorkout = async (mode: StartMode, selectedTemplateId?: string) => {
     try {
       const workout = await startWorkout(selectedTemplateId);
       setWorkoutId(workout.id);
       setStartMode(mode);
       setTemplateId(selectedTemplateId ?? null);
+      setRoutineDayId(null);
 
       // Pre-populate exercises based on mode
       if (mode === 'repeat') {
@@ -405,9 +447,65 @@ export default function LogWorkoutScreen() {
 
   const promptSaveAsTemplate = async () => {
     // Check if we should prompt for template save
-    // Prompt if: started empty, OR started from template but exercises differ
     const currentExerciseIds = workoutExercises.map((we) => we.exercise_id);
     
+    // Routine-based workout flow (split_migration.md §5)
+    if (startMode === 'routine' && routineDayId) {
+      const routineDay = await getRoutineDayById(routineDayId);
+      if (routineDay?.template_id) {
+        const template = await getTemplate(routineDay.template_id);
+        if (template) {
+          const templateExerciseIds: string[] = JSON.parse(template.exercise_ids);
+          const isSame = 
+            templateExerciseIds.length === currentExerciseIds.length &&
+            templateExerciseIds.every((id, i) => id === currentExerciseIds[i]);
+          
+          if (isSame) {
+            // No changes from routine day's template, just finish
+            router.back();
+            return;
+          }
+          
+          // Exercises changed - offer routine-specific options
+          Alert.alert(
+            "Exercises Changed",
+            `Your exercises differ from the ${routineDay.name} template.`,
+            [
+              { 
+                text: "Don't Save", 
+                style: "cancel",
+                onPress: () => router.back()
+              },
+              {
+                text: "Update Day's Template",
+                onPress: async () => {
+                  try {
+                    await updateTemplate(template.id, { exerciseIds: currentExerciseIds });
+                    router.back();
+                  } catch (error) {
+                    Alert.alert("Error", "Failed to update template");
+                  }
+                },
+              },
+              {
+                text: "Save as New",
+                onPress: () => {
+                  setPendingExerciseIds(currentExerciseIds);
+                  setTemplateName("");
+                  setSaveTemplateModalVisible(true);
+                },
+              },
+            ]
+          );
+          return;
+        }
+      }
+      // No template linked to routine day, just finish
+      router.back();
+      return;
+    }
+    
+    // Template-based workout flow (existing behavior)
     if (startMode === 'template' && templateId) {
       const template = templates.find((t) => t.id === templateId);
       if (template) {
@@ -423,7 +521,7 @@ export default function LogWorkoutScreen() {
       }
     }
 
-    // Prompt to save as new template
+    // Prompt to save as new template (for empty/repeat/template-with-changes)
     Alert.alert(
       "Save as Template?",
       "Would you like to save this workout as a new template for quick access next time?",
@@ -499,13 +597,29 @@ export default function LogWorkoutScreen() {
           <Text style={styles.startTitle}>Ready to train?</Text>
           <Text style={styles.startSubtitle}>Choose how to start</Text>
 
+          {/* Continue Routine - Primary CTA (split_migration.md §4) */}
+          {nextRoutineDay && defaultRoutine && (
+            <TouchableOpacity
+              style={[styles.startOptionButton, styles.startOptionRoutine]}
+              onPress={handleStartRoutineWorkout}
+            >
+              <Text style={styles.startOptionIcon}>🏋️</Text>
+              <View style={styles.startOptionContent}>
+                <Text style={styles.startOptionTitle}>
+                  Continue {defaultRoutine.name}: {nextRoutineDay.name}
+                </Text>
+                <Text style={styles.startOptionDesc}>Next day in your routine</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* Repeat Last Workout */}
           {hasLastWorkout && (
             <TouchableOpacity
               style={[styles.startOptionButton, styles.startOptionPrimary]}
               onPress={() => handleStartWorkout('repeat')}
             >
-              <Text style={styles.startOptionIcon}>R</Text>
+              <Text style={styles.startOptionIcon}>↻</Text>
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Repeat Last Workout</Text>
                 <Text style={styles.startOptionDesc}>Same exercises as your last session</Text>
@@ -861,6 +975,9 @@ const styles = StyleSheet.create({
   },
   startOptionEmpty: {
     backgroundColor: "#34C759",
+  },
+  startOptionRoutine: {
+    backgroundColor: "#FF9500",
   },
   startOptionIcon: {
     fontSize: 28,

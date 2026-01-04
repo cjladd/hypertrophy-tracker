@@ -1,23 +1,39 @@
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
-import { seedExercises } from "@/lib/repo";
+import { getDefaultRoutine, getRoutineDays, seedExercises } from "@/lib/repo";
+import type { Routine, RoutineDay } from "@/lib/types";
 import { Stack } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function SettingsScreen() {
   const { weightJumpLb, setWeightJumpLb } = useSettings();
   const [localWeightJump, setLocalWeightJump] = useState(String(weightJumpLb));
   const [busy, setBusy] = useState(false);
+  const [routine, setRoutine] = useState<Routine | null>(null);
+  const [routineDays, setRoutineDays] = useState<RoutineDay[]>([]);
+
+  // Load routine data
+  useEffect(() => {
+    const loadRoutineData = async () => {
+      const defaultRoutine = await getDefaultRoutine();
+      setRoutine(defaultRoutine);
+      if (defaultRoutine) {
+        const days = await getRoutineDays(defaultRoutine.id);
+        setRoutineDays(days);
+      }
+    };
+    loadRoutineData();
+  }, []);
 
   const saveWeightJump = () => {
     const num = parseInt(localWeightJump, 10);
@@ -32,7 +48,7 @@ export default function SettingsScreen() {
   const confirmResetDb = () => {
     Alert.alert(
       "Reset database?",
-      "This deletes ALL workouts, sets, templates, and exercises, then recreates defaults. This cannot be undone.",
+      "This deletes ALL workouts, sets, templates, routines, and exercises, then recreates defaults. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -43,7 +59,15 @@ export default function SettingsScreen() {
             try {
               await resetDB();
               await seedExercises();
-              Alert.alert("Done", "Database reset and default exercises reseeded.");
+              await seedPPLRoutine();
+              // Reload routine data
+              const defaultRoutine = await getDefaultRoutine();
+              setRoutine(defaultRoutine);
+              if (defaultRoutine) {
+                const days = await getRoutineDays(defaultRoutine.id);
+                setRoutineDays(days);
+              }
+              Alert.alert("Done", "Database reset and defaults reseeded.");
             } catch (e) {
               console.error(e);
               Alert.alert("Error", "Failed to reset database.");
@@ -97,6 +121,34 @@ export default function SettingsScreen() {
         <TouchableOpacity style={styles.primaryButton} onPress={saveWeightJump} disabled={busy}>
           <Text style={styles.primaryButtonText}>Save</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Manage Split Days (split_migration.md §7) */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Training Routine</Text>
+        {routine ? (
+          <>
+            <View style={styles.routineHeader}>
+              <Text style={styles.routineName}>{routine.name}</Text>
+              {routine.is_preset === 1 && (
+                <Text style={styles.presetBadge}>Preset</Text>
+              )}
+            </View>
+            <View style={styles.routineDaysList}>
+              {routineDays.map((day, index) => (
+                <View key={day.id} style={styles.routineDayItem}>
+                  <Text style={styles.routineDayNumber}>{index + 1}</Text>
+                  <Text style={styles.routineDayName}>{day.name}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.routineNote}>
+              Custom routines coming in a future update
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.noRoutineText}>No routine configured</Text>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -238,5 +290,63 @@ const styles = StyleSheet.create({
   },
   busyText: {
     color: "#444",
+  },
+  // Routine styles (split_migration.md §7)
+  routineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  routineName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  presetBadge: {
+    backgroundColor: "#FF9500",
+    color: "white",
+    fontSize: 11,
+    fontWeight: "600",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  routineDaysList: {
+    marginTop: 8,
+  },
+  routineDayItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  routineDayNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#007AFF",
+    color: "white",
+    textAlign: "center",
+    lineHeight: 24,
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 12,
+    overflow: "hidden",
+  },
+  routineDayName: {
+    fontSize: 15,
+    color: "#333",
+  },
+  routineNote: {
+    marginTop: 12,
+    fontSize: 12,
+    color: "#888",
+    fontStyle: "italic",
+  },
+  noRoutineText: {
+    color: "#666",
+    fontSize: 14,
   },
 });

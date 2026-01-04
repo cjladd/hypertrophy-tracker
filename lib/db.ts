@@ -92,6 +92,38 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       );
     `);
 
+    // Create routines table (split_migration.md §1)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS routines (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        is_preset INTEGER DEFAULT 0,
+        created_at INTEGER DEFAULT (strftime('%s', 'now') * 1000)
+      );
+    `);
+
+    // Create routine_days table (split_migration.md §1)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS routine_days (
+        id TEXT PRIMARY KEY,
+        routine_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        order_index INTEGER NOT NULL,
+        template_id TEXT,
+        exercise_ids TEXT DEFAULT '[]',
+        FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE,
+        FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+      );
+    `);
+
+    // Add routine_day_id to workouts if not exists (split_migration.md §1.2)
+    // SQLite doesn't support ADD COLUMN IF NOT EXISTS, so we check first
+    try {
+      await db.execAsync(`ALTER TABLE workouts ADD COLUMN routine_day_id TEXT REFERENCES routine_days(id) ON DELETE SET NULL`);
+    } catch {
+      // Column likely already exists, ignore error
+    }
+
     // Create indexes for better query performance
     await db.execAsync(`
       CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout ON workout_exercises(workout_id);
@@ -99,8 +131,10 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_sets_workout_exercise ON sets(workout_exercise_id);
       CREATE INDEX IF NOT EXISTS idx_workouts_started ON workouts(started_at);
       CREATE INDEX IF NOT EXISTS idx_workouts_template ON workouts(template_id);
+      CREATE INDEX IF NOT EXISTS idx_workouts_routine_day ON workouts(routine_day_id);
       CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
       CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscle_group);
+      CREATE INDEX IF NOT EXISTS idx_routine_days_routine ON routine_days(routine_id);
     `);
 
     console.log('Database tables initialized successfully');
@@ -129,6 +163,8 @@ export async function resetDB(): Promise<void> {
       DROP TABLE IF EXISTS sets;
       DROP TABLE IF EXISTS workout_exercises;
       DROP TABLE IF EXISTS progression_state;
+      DROP TABLE IF EXISTS routine_days;
+      DROP TABLE IF EXISTS routines;
       DROP TABLE IF EXISTS workouts;
       DROP TABLE IF EXISTS templates;
       DROP TABLE IF EXISTS exercises;

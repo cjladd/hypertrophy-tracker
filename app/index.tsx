@@ -73,6 +73,12 @@ export default function Index() {
           </TouchableOpacity>
         </Link>
 
+        <Link href="/templates" asChild>
+          <TouchableOpacity style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Templates</Text>
+          </TouchableOpacity>
+        </Link>
+
         <Link href="/exercises" asChild>
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Manage Exercises</Text>

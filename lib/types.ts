@@ -49,11 +49,30 @@ export interface Template {
   created_at?: number;
 }
 
+// Routine for split-based training (split_migration.md §1)
+export interface Routine {
+  id: string;
+  name: string;
+  is_preset: number; // 0 or 1 (SQLite boolean)
+  created_at?: number;
+}
+
+// Individual day within a routine (split_migration.md §1)
+export interface RoutineDay {
+  id: string;
+  routine_id: string;
+  name: string;
+  order_index: number;
+  template_id: string | null; // Links to template for exercises
+  exercise_ids: string; // JSON array fallback if no template
+}
+
 export interface Workout {
   id: string;
   started_at: number;
   ended_at: number | null;
   template_id: string | null;
+  routine_day_id: string | null; // Added for split_migration.md §1.2
   notes: string | null;
 }
 

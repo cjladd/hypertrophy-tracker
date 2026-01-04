@@ -3,7 +3,7 @@
 import * as Crypto from 'expo-crypto';
 import { getDB } from './db';
 import { all, get, run } from './sql';
-import type { Exercise, MuscleGroup, ProgressionState, Set, Template, Workout, WorkoutExercise } from './types';
+import type { Exercise, MuscleGroup, ProgressionState, Routine, RoutineDay, Set, Template, Workout, WorkoutExercise } from './types';
 
 function uuid() {
   return (Crypto as any).randomUUID?.() ?? String(Date.now()) + Math.random().toString(16).slice(2);
@@ -260,7 +260,7 @@ export async function startWorkout(templateId?: string): Promise<Workout> {
     'INSERT INTO workouts (id, started_at, template_id) VALUES (?,?,?)',
     [id, now, templateId ?? null]
   );
-  return { id, started_at: now, ended_at: null, template_id: templateId ?? null, notes: null };
+  return { id, started_at: now, ended_at: null, template_id: templateId ?? null, routine_day_id: null, notes: null };
 }
 
 export async function finishWorkout(workoutId: string, notes?: string): Promise<void> {
@@ -287,7 +287,7 @@ export async function getWorkout(id: string): Promise<Workout | null> {
   const db = await getDB();
   return await get<Workout>(
     db,
-    'SELECT id, started_at, ended_at, template_id, notes FROM workouts WHERE id = ?',
+    'SELECT id, started_at, ended_at, template_id, routine_day_id, notes FROM workouts WHERE id = ?',
     [id]
   );
 }
@@ -297,7 +297,7 @@ export async function listRecentWorkouts(limit = 20): Promise<Workout[]> {
   const lim = Math.max(1, Math.min(1000, Math.floor(limit)));
   return await all<Workout>(
     db,
-    `SELECT id, started_at, ended_at, template_id, notes
+    `SELECT id, started_at, ended_at, template_id, routine_day_id, notes
      FROM workouts
      ORDER BY COALESCE(ended_at, started_at) DESC
      LIMIT ${lim}`
@@ -308,7 +308,7 @@ export async function getLastWorkout(): Promise<Workout | null> {
   const db = await getDB();
   return await get<Workout>(
     db,
-    `SELECT id, started_at, ended_at, template_id, notes
+    `SELECT id, started_at, ended_at, template_id, routine_day_id, notes
      FROM workouts
      WHERE ended_at IS NOT NULL
      ORDER BY ended_at DESC
@@ -488,4 +488,217 @@ export async function getLastWorkoutExerciseIds(): Promise<string[]> {
     [lastWorkout.id]
   );
   return workoutExercises.map((we) => we.exercise_id);
+}
+
+// ============================================
+// ROUTINES (split_migration.md §2, §3)
+// ============================================
+
+// Seed PPL routine with default templates (idempotent)
+export async function seedPPLRoutine(): Promise<void> {
+  const db = await getDB();
+  try {
+    // Check if PPL routine already exists
+    const existing = await get<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM routines WHERE name = 'PPL' AND is_preset = 1"
+    );
+    if ((existing?.count ?? 0) > 0) {
+      console.log('PPL routine already exists, skipping seed');
+      return;
+    }
+
+    // Get exercises by name for template creation
+    const exercises = await getExercises();
+    const getExerciseId = (name: string): string | undefined =>
+      exercises.find((e) => e.name === name)?.id;
+
+    // Define PPL day exercises
+    const pushExercises = [
+      'Bench Press',
+      'Incline Dumbbell Press',
+      'Overhead Press',
+      'Lateral Raise',
+      'Tricep Pushdown',
+      'Skull Crusher',
+    ];
+    const pullExercises = [
+      'Pull-Up',
+      'Lat Pulldown',
+      'Barbell Row',
+      'Cable Row',
+      'Face Pull',
+      'Barbell Curl',
+      'Hammer Curl',
+    ];
+    const legsExercises = [
+      'Back Squat',
+      'Leg Press',
+      'Romanian Deadlift',
+      'Leg Extension',
+      'Lying Leg Curl',
+      'Standing Calf Raise',
+    ];
+
+    // Create templates for each day
+    const pushExerciseIds = pushExercises.map(getExerciseId).filter(Boolean) as string[];
+    const pullExerciseIds = pullExercises.map(getExerciseId).filter(Boolean) as string[];
+    const legsExerciseIds = legsExercises.map(getExerciseId).filter(Boolean) as string[];
+
+    // Check if templates already exist, if not create them
+    let pushTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Push'");
+    let pullTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Pull'");
+    let legsTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Legs'");
+
+    if (!pushTemplate) {
+      pushTemplate = await createTemplate('Push', pushExerciseIds);
+    }
+    if (!pullTemplate) {
+      pullTemplate = await createTemplate('Pull', pullExerciseIds);
+    }
+    if (!legsTemplate) {
+      legsTemplate = await createTemplate('Legs', legsExerciseIds);
+    }
+
+    // Create PPL routine
+    const routineId = uuid();
+    const now = Date.now();
+    await run(
+      db,
+      'INSERT INTO routines (id, name, is_preset, created_at) VALUES (?,?,1,?)',
+      [routineId, 'PPL', now]
+    );
+
+    // Create routine days linked to templates
+    const days = [
+      { name: 'Push', templateId: pushTemplate.id, orderIndex: 0 },
+      { name: 'Pull', templateId: pullTemplate.id, orderIndex: 1 },
+      { name: 'Legs', templateId: legsTemplate.id, orderIndex: 2 },
+    ];
+
+    for (const day of days) {
+      await run(
+        db,
+        'INSERT INTO routine_days (id, routine_id, name, order_index, template_id, exercise_ids) VALUES (?,?,?,?,?,?)',
+        [uuid(), routineId, day.name, day.orderIndex, day.templateId, '[]']
+      );
+    }
+
+    console.log('Seeded PPL routine with Push, Pull, Legs days');
+  } catch (e) {
+    console.warn('seedPPLRoutine error:', e);
+  }
+}
+
+// Get all routines
+export async function listRoutines(): Promise<Routine[]> {
+  const db = await getDB();
+  return await all<Routine>(
+    db,
+    'SELECT id, name, is_preset, created_at FROM routines ORDER BY is_preset DESC, name ASC'
+  );
+}
+
+// Get a routine by ID
+export async function getRoutineById(id: string): Promise<Routine | null> {
+  const db = await getDB();
+  return await get<Routine>(
+    db,
+    'SELECT id, name, is_preset, created_at FROM routines WHERE id = ?',
+    [id]
+  );
+}
+
+// Get all days for a routine
+export async function getRoutineDays(routineId: string): Promise<RoutineDay[]> {
+  const db = await getDB();
+  return await all<RoutineDay>(
+    db,
+    'SELECT id, routine_id, name, order_index, template_id, exercise_ids FROM routine_days WHERE routine_id = ? ORDER BY order_index ASC',
+    [routineId]
+  );
+}
+
+// Get the first (default) routine (PPL for v1)
+export async function getDefaultRoutine(): Promise<Routine | null> {
+  const db = await getDB();
+  return await get<Routine>(
+    db,
+    'SELECT id, name, is_preset, created_at FROM routines WHERE is_preset = 1 ORDER BY created_at ASC LIMIT 1'
+  );
+}
+
+// Get next routine day based on last completed workout
+// Cycles through days: Push -> Pull -> Legs -> Push...
+export async function getNextRoutineDay(routineId: string): Promise<RoutineDay | null> {
+  const db = await getDB();
+
+  // Get all days for this routine
+  const days = await getRoutineDays(routineId);
+  if (days.length === 0) return null;
+
+  // Find last completed workout with a routine_day_id from this routine
+  const lastWorkout = await get<{ routine_day_id: string }>(
+    db,
+    `SELECT w.routine_day_id
+     FROM workouts w
+     JOIN routine_days rd ON w.routine_day_id = rd.id
+     WHERE rd.routine_id = ? AND w.ended_at IS NOT NULL
+     ORDER BY w.ended_at DESC
+     LIMIT 1`,
+    [routineId]
+  );
+
+  if (!lastWorkout?.routine_day_id) {
+    // No history, return first day
+    return days[0];
+  }
+
+  // Find the last day's index and advance
+  const lastDay = days.find((d) => d.id === lastWorkout.routine_day_id);
+  if (!lastDay) return days[0];
+
+  const nextIndex = (lastDay.order_index + 1) % days.length;
+  return days.find((d) => d.order_index === nextIndex) ?? days[0];
+}
+
+// Get routine day by ID
+export async function getRoutineDayById(id: string): Promise<RoutineDay | null> {
+  const db = await getDB();
+  return await get<RoutineDay>(
+    db,
+    'SELECT id, routine_id, name, order_index, template_id, exercise_ids FROM routine_days WHERE id = ?',
+    [id]
+  );
+}
+
+// Start workout from a routine day
+export async function startWorkoutFromRoutineDay(routineDayId: string): Promise<Workout> {
+  const db = await getDB();
+  const id = uuid();
+  const now = Date.now();
+
+  // Get the routine day to find its template
+  const routineDay = await getRoutineDayById(routineDayId);
+
+  await run(
+    db,
+    'INSERT INTO workouts (id, started_at, template_id, routine_day_id) VALUES (?,?,?,?)',
+    [id, now, routineDay?.template_id ?? null, routineDayId]
+  );
+
+  return {
+    id,
+    started_at: now,
+    ended_at: null,
+    template_id: routineDay?.template_id ?? null,
+    routine_day_id: routineDayId,
+    notes: null,
+  };
+}
+
+// Update a routine day's template (for "Update this day's template" option)
+export async function updateRoutineDayTemplate(routineDayId: string, templateId: string): Promise<void> {
+  const db = await getDB();
+  await run(db, 'UPDATE routine_days SET template_id = ? WHERE id = ?', [templateId, routineDayId]);
 }
