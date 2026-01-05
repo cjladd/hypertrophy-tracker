@@ -1,8 +1,7 @@
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
-import { getDefaultRoutine, getRoutineDays, seedExercises } from "@/lib/repo";
+import { getDefaultRoutine, getRoutineDays, seedExercises, seedPPLRoutine } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
-import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -101,8 +100,6 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Settings" }} />
-
       <Text style={styles.title}>Settings</Text>
       <Text style={styles.subtitle}>Tweak defaults and run dev tools.</Text>
 

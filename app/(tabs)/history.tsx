@@ -13,7 +13,7 @@ import {
     updateWorkoutNotes
 } from "@/lib/repo";
 import type { Exercise, Set, Workout, WorkoutExercise } from "@/lib/types";
-import { Stack, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     Alert,
@@ -287,18 +287,14 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <>
-        <Stack.Screen options={{ title: "History" }} />
-        <View style={styles.container}>
-          <Text style={styles.loadingText}>Loading workouts...</Text>
-        </View>
-      </>
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading workouts...</Text>
+      </View>
     );
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: "History" }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {workouts.length === 0 ? (
           <View style={styles.emptyState}>

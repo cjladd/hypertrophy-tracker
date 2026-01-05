@@ -67,12 +67,6 @@ export default function Index() {
           </TouchableOpacity>
         </Link>
 
-        <Link href="/history" asChild>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>History</Text>
-          </TouchableOpacity>
-        </Link>
-
         <Link href="/templates" asChild>
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Templates</Text>
@@ -82,12 +76,6 @@ export default function Index() {
         <Link href="/exercises" asChild>
           <TouchableOpacity style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Manage Exercises</Text>
-          </TouchableOpacity>
-        </Link>
-
-        <Link href="/settings" asChild>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Settings & Dev Tools</Text>
           </TouchableOpacity>
         </Link>
       </View>
