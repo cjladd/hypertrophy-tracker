@@ -1,12 +1,36 @@
 // lib/repo.ts
 // Repository functions aligned with PRD v1 data model
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { getDB } from './db';
 import { all, get, run } from './sql';
-import type { Exercise, MuscleGroup, ProgressionState, Routine, RoutineDay, Set, Template, Workout, WorkoutExercise } from './types';
+import type { Exercise, MuscleGroup, ProgressionState, Routine, RoutineDay, Set, Settings, Template, Workout, WorkoutExercise } from './types';
 
 function uuid() {
   return (Crypto as any).randomUUID?.() ?? String(Date.now()) + Math.random().toString(16).slice(2);
+}
+
+// ============================================
+// SETTINGS (AsyncStorage-based)
+// ============================================
+
+const SETTINGS_KEY = 'ht_settings_v2';
+const DEFAULT_SETTINGS: Settings = { weightJumpLb: 5 };
+
+/**
+ * Get settings from AsyncStorage (prog_engine.md §2)
+ * This is a standalone function for use in repo without React context
+ */
+export async function getSettings(): Promise<Settings> {
+  try {
+    const raw = await AsyncStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+  } catch {
+    // Ignore errors, use defaults
+  }
+  return DEFAULT_SETTINGS;
 }
 
 // ============================================
@@ -433,33 +457,6 @@ export async function getSetsForWorkout(workoutId: string): Promise<(Set & { exe
   );
 }
 
-// ============================================
-// PROGRESSION STATE (PRD §4)
-// ============================================
-
-export async function getProgressionState(exerciseId: string): Promise<ProgressionState | null> {
-  const db = await getDB();
-  return await get<ProgressionState>(
-    db,
-    'SELECT exercise_id, last_suggested_weight_lb, last_successful_weight_lb, consecutive_non_success_exposures FROM progression_state WHERE exercise_id = ?',
-    [exerciseId]
-  );
-}
-
-export async function upsertProgressionState(state: ProgressionState): Promise<void> {
-  const db = await getDB();
-  await run(
-    db,
-    `INSERT INTO progression_state (exercise_id, last_suggested_weight_lb, last_successful_weight_lb, consecutive_non_success_exposures)
-     VALUES (?,?,?,?)
-     ON CONFLICT(exercise_id) DO UPDATE SET
-       last_suggested_weight_lb = excluded.last_suggested_weight_lb,
-       last_successful_weight_lb = excluded.last_successful_weight_lb,
-       consecutive_non_success_exposures = excluded.consecutive_non_success_exposures`,
-    [state.exercise_id, state.last_suggested_weight_lb, state.last_successful_weight_lb, state.consecutive_non_success_exposures]
-  );
-}
-
 // Get the last weight used for an exercise (for prefill)
 export async function getLastWeightForExercise(exerciseId: string): Promise<number | null> {
   const db = await getDB();
@@ -701,4 +698,227 @@ export async function startWorkoutFromRoutineDay(routineDayId: string): Promise<
 export async function updateRoutineDayTemplate(routineDayId: string, templateId: string): Promise<void> {
   const db = await getDB();
   await run(db, 'UPDATE routine_days SET template_id = ? WHERE id = ?', [templateId, routineDayId]);
+}
+
+// ============================================
+// PROGRESSION STATE (prog_engine.md)
+// ============================================
+
+import {
+    type ExposureData,
+    generateSuggestion,
+    getInitialProgressionState,
+    processExposure,
+} from './progression';
+import type { ProgressionSuggestion } from './types';
+
+/**
+ * Get progression state for an exercise
+ */
+export async function getProgressionState(exerciseId: string): Promise<ProgressionState | null> {
+  const db = await getDB();
+  return await get<ProgressionState>(
+    db,
+    'SELECT exercise_id, last_weight_lb, stall_count, progression_ceiling, watch_next_exposure FROM progression_state WHERE exercise_id = ?',
+    [exerciseId]
+  );
+}
+
+/**
+ * Upsert progression state for an exercise
+ */
+export async function upsertProgressionState(state: ProgressionState): Promise<void> {
+  const db = await getDB();
+  await run(
+    db,
+    `INSERT INTO progression_state (exercise_id, last_weight_lb, stall_count, progression_ceiling, watch_next_exposure)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(exercise_id) DO UPDATE SET
+       last_weight_lb = excluded.last_weight_lb,
+       stall_count = excluded.stall_count,
+       progression_ceiling = excluded.progression_ceiling,
+       watch_next_exposure = excluded.watch_next_exposure`,
+    [state.exercise_id, state.last_weight_lb, state.stall_count, state.progression_ceiling, state.watch_next_exposure]
+  );
+}
+
+/**
+ * Get all exposures for an exercise ordered chronologically (prog_engine.md §10)
+ * An exposure is a workout where at least 1 set was logged for the exercise
+ */
+export async function getExerciseExposures(exerciseId: string): Promise<ExposureData[]> {
+  const db = await getDB();
+
+  // Get all workout_exercises for this exercise with their workout info
+  const workoutExercises = await all<{
+    we_id: string;
+    workout_id: string;
+    started_at: number;
+  }>(
+    db,
+    `SELECT we.id as we_id, we.workout_id, w.started_at
+     FROM workout_exercises we
+     JOIN workouts w ON we.workout_id = w.id
+     WHERE we.exercise_id = ? AND w.ended_at IS NOT NULL
+     ORDER BY w.started_at ASC`,
+    [exerciseId]
+  );
+
+  const exposures: ExposureData[] = [];
+
+  for (const we of workoutExercises) {
+    const sets = await all<Set>(
+      db,
+      'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
+      [we.we_id]
+    );
+
+    if (sets.length > 0) {
+      exposures.push({
+        workoutId: we.workout_id,
+        workoutStartedAt: we.started_at,
+        sets,
+      });
+    }
+  }
+
+  return exposures;
+}
+
+/**
+ * Get the most recent exposure's sets for an exercise
+ */
+export async function getLastExposureSets(exerciseId: string): Promise<Set[] | null> {
+  const db = await getDB();
+
+  // Get the most recent workout_exercise for this exercise
+  const lastWe = await get<{ we_id: string }>(
+    db,
+    `SELECT we.id as we_id
+     FROM workout_exercises we
+     JOIN workouts w ON we.workout_id = w.id
+     WHERE we.exercise_id = ? AND w.ended_at IS NOT NULL
+     ORDER BY w.started_at DESC
+     LIMIT 1`,
+    [exerciseId]
+  );
+
+  if (!lastWe) return null;
+
+  const sets = await all<Set>(
+    db,
+    'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
+    [lastWe.we_id]
+  );
+
+  return sets.length > 0 ? sets : null;
+}
+
+/**
+ * Recompute progression state from workout history (prog_engine.md §10)
+ * This MUST be called after any workout edit/delete to prevent drift
+ */
+export async function recomputeProgressionState(exerciseId: string): Promise<void> {
+  const db = await getDB();
+
+  // Get exercise for rep range info
+  const exercise = await get<Exercise>(
+    db,
+    'SELECT id, name, muscle_group, is_custom, rep_range_min, rep_range_max FROM exercises WHERE id = ?',
+    [exerciseId]
+  );
+
+  if (!exercise) {
+    console.warn(`recomputeProgressionState: exercise ${exerciseId} not found`);
+    return;
+  }
+
+  // Get user settings for weightJumpLb
+  const settings = await getSettings();
+  const weightJumpLb = settings.weightJumpLb;
+
+  // Get all exposures ordered chronologically
+  const exposures = await getExerciseExposures(exerciseId);
+
+  // Initialize state
+  let state = getInitialProgressionState(exerciseId, exercise.rep_range_max);
+
+  // Iterate through all exposures, applying progression logic
+  for (const exposure of exposures) {
+    state = processExposure(exposure, state, exercise, weightJumpLb);
+  }
+
+  // Persist final state
+  await upsertProgressionState(state);
+}
+
+/**
+ * Recompute progression state for ALL exercises that have exposures
+ * Useful after data import or major edits
+ */
+export async function recomputeAllProgressionStates(): Promise<void> {
+  const db = await getDB();
+
+  // Get all exercises that have at least one exposure
+  const exercisesWithHistory = await all<{ exercise_id: string }>(
+    db,
+    `SELECT DISTINCT we.exercise_id
+     FROM workout_exercises we
+     JOIN workouts w ON we.workout_id = w.id
+     WHERE w.ended_at IS NOT NULL`
+  );
+
+  for (const { exercise_id } of exercisesWithHistory) {
+    await recomputeProgressionState(exercise_id);
+  }
+}
+
+/**
+ * Get progression suggestion for an exercise (prog_engine.md §11)
+ * Returns suggested weight and reason code for UI display
+ */
+export async function getProgressionSuggestion(exerciseId: string): Promise<ProgressionSuggestion> {
+  const db = await getDB();
+
+  // Get exercise
+  const exercise = await get<Exercise>(
+    db,
+    'SELECT id, name, muscle_group, is_custom, rep_range_min, rep_range_max FROM exercises WHERE id = ?',
+    [exerciseId]
+  );
+
+  if (!exercise) {
+    throw new Error(`Exercise ${exerciseId} not found`);
+  }
+
+  // Get current progression state
+  const state = await getProgressionState(exerciseId);
+
+  // Get last exposure sets
+  const lastSets = await getLastExposureSets(exerciseId);
+
+  // Get user settings
+  const settings = await getSettings();
+
+  return generateSuggestion(exercise, state, lastSets, settings.weightJumpLb);
+}
+
+/**
+ * Update progression state after completing a workout
+ * Called when a workout is finished
+ */
+export async function updateProgressionAfterWorkout(workoutId: string): Promise<void> {
+  const db = await getDB();
+
+  // Get all exercises from this workout
+  const workoutExercises = await all<{ exercise_id: string }>(
+    db,
+    'SELECT DISTINCT exercise_id FROM workout_exercises WHERE workout_id = ?',
+    [workoutId]
+  );
+
+  // Recompute progression state for each exercise
+  for (const { exercise_id } of workoutExercises) {
+    await recomputeProgressionState(exercise_id);
+  }
 }

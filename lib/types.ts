@@ -95,12 +95,36 @@ export interface Set {
   created_at: number;
 }
 
-// Derived cache for progression engine
+// Derived cache for progression engine (prog_engine.md §3)
+// This state is a cache - MUST be recomputable from workout history
 export interface ProgressionState {
   exercise_id: string;
-  last_suggested_weight_lb: number | null;
-  last_successful_weight_lb: number | null;
-  consecutive_non_success_exposures: number;
+  last_weight_lb: number | null;       // Canonical current working weight from most recent exposure
+  stall_count: number;                  // Consecutive non-success exposures (0-3+)
+  progression_ceiling: number;          // Current ceiling (repRangeMax, 15, or 20)
+  watch_next_exposure: number;          // 0 or 1 - set when progressing on RPE 10
+}
+
+// Reason codes for progression decisions (prog_engine.md §6-7)
+export type ProgressionReasonCode =
+  | 'INCREASE'                 // Normal weight increment
+  | 'EXPAND_CEILING_15'        // Triple progression: expand to 15 reps
+  | 'EXPAND_CEILING_20'        // Triple progression: expand to 20 reps
+  | 'INCREASE_AFTER_20'        // Increment after hitting 20 reps
+  | 'HOLD_NOT_AT_CEILING'      // Reps below ceiling
+  | 'HOLD_RPE_TOO_HIGH'        // Hit reps but RPE > 9.5
+  | 'HOLD_NOT_ENOUGH_SETS'     // Less than 2 sets logged
+  | 'RESET_10PCT'              // Stall threshold reached, 10% reset
+  | 'RESET_AFTER_DROP'         // Watch mode: reps dropped below min after RPE=10 progression
+  | 'FIRST_TIME';              // First exposure, no prior data
+
+// Progression suggestion for UI display
+export interface ProgressionSuggestion {
+  exerciseId: string;
+  suggestedWeightLb: number;
+  currentCeiling: number;       // May be > repRangeMax if expanded
+  reasonCode: ProgressionReasonCode;
+  reasonMessage: string;        // Human-readable explanation
 }
 
 // Extended types for UI

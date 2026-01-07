@@ -1,5 +1,6 @@
 // app/history.tsx
 // History screen - View, edit, and delete past workouts (PRD A3D)
+// Progression recomputation on edit/delete per prog_engine.md §10
 
 import { getRPEColor } from "@/components/RPEPicker";
 import {
@@ -9,6 +10,7 @@ import {
     getSetsForWorkoutExercise,
     getWorkoutExercises,
     listRecentWorkouts,
+    recomputeProgressionState,
     updateSet,
     updateWorkoutNotes
 } from "@/lib/repo";
@@ -46,6 +48,7 @@ export default function HistoryScreen() {
 
   // Edit state
   const [editingSet, setEditingSet] = useState<Set | null>(null);
+  const [editingWorkoutExercise, setEditingWorkoutExercise] = useState<WorkoutExerciseWithSets | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editReps, setEditReps] = useState("");
   const [editRpe, setEditRpe] = useState<string>("");
@@ -183,8 +186,16 @@ export default function HistoryScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // Capture exercise IDs before deletion for recomputation
+              const exerciseIds = workout.exercises.map(e => e.exercise_id);
+              
               await deleteWorkout(workout.id);
-              // TODO: Trigger ProgressionState recomputation when Phase 4 is implemented
+              
+              // Recompute progression state for all affected exercises (prog_engine.md §10)
+              for (const exerciseId of exerciseIds) {
+                await recomputeProgressionState(exerciseId);
+              }
+              
               closeWorkoutDetail();
               loadWorkouts();
             } catch (error) {
@@ -197,7 +208,11 @@ export default function HistoryScreen() {
   };
 
   const openEditSet = (set: Set) => {
+    if (!selectedWorkout) return;
+    const workoutExercise =
+      selectedWorkout.exercises.find((we) => we.id === set.workout_exercise_id) ?? null;
     setEditingSet(set);
+    setEditingWorkoutExercise(workoutExercise);
     setEditWeight(String(set.weight_lb));
     setEditReps(String(set.reps));
     setEditRpe(set.rpe !== null ? String(set.rpe) : "");
@@ -207,6 +222,7 @@ export default function HistoryScreen() {
   const closeEditSet = () => {
     setEditSetModalVisible(false);
     setEditingSet(null);
+    setEditingWorkoutExercise(null);
   };
 
   const handleSaveSet = async () => {
@@ -236,7 +252,11 @@ export default function HistoryScreen() {
         rpe: rpeNum,
       });
 
-      // TODO: Trigger ProgressionState recomputation when Phase 4 is implemented
+      // Recompute progression state for this exercise (prog_engine.md §10)
+      const exerciseId = editingWorkoutExercise?.exercise_id;
+      if (exerciseId) {
+        await recomputeProgressionState(exerciseId);
+      }
 
       closeEditSet();
       await refreshSelectedWorkout();
@@ -255,8 +275,15 @@ export default function HistoryScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            // Capture exercise ID before deletion
+            const exerciseId = editingWorkoutExercise?.exercise_id;
+            
             await deleteSet(editingSet.id);
-            // TODO: Trigger ProgressionState recomputation when Phase 4 is implemented
+            
+            // Recompute progression state for this exercise (prog_engine.md §10)
+            if (exerciseId) {
+              await recomputeProgressionState(exerciseId);
+            }
 
             closeEditSet();
             await refreshSelectedWorkout();

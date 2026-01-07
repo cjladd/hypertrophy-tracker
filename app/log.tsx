@@ -1,6 +1,7 @@
 // app/log.tsx
 // Workout logging screen aligned with PRD v1
 // No warmups, no per-set notes, working sets only, weightLb
+// Progression engine integration per prog_engine.md
 
 import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
@@ -12,19 +13,20 @@ import {
     finishWorkout,
     getDefaultRoutine,
     getExercises,
-    getLastWeightForExercise,
     getLastWorkoutExerciseIds,
     getNextRoutineDay,
+    getProgressionSuggestion,
     getRoutineDayById,
     getTemplate,
     getTemplates,
     removeWorkoutExercise,
     startWorkout,
     startWorkoutFromRoutineDay,
+    updateProgressionAfterWorkout,
     updateSet,
     updateTemplate
 } from "@/lib/repo";
-import type { Exercise, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
+import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -75,6 +77,9 @@ export default function LogWorkoutScreen() {
   const [weight, setWeight] = useState("");
   const [rpe, setRpe] = useState<number | undefined>(undefined);
   const [inlineStatus, setInlineStatus] = useState("");
+
+  // Progression suggestion state (prog_engine.md §11)
+  const [currentSuggestion, setCurrentSuggestion] = useState<ProgressionSuggestion | null>(null);
 
   // Edit set modal state
   const [editSetModalVisible, setEditSetModalVisible] = useState(false);
@@ -164,7 +169,6 @@ export default function LogWorkoutScreen() {
       if (!exercise) continue;
 
       const we = await addWorkoutExercise(workoutId, exerciseId, i);
-      const lastWeight = await getLastWeightForExercise(exerciseId);
 
       newWorkoutExercises.push({
         ...we,
@@ -172,9 +176,17 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      // Set weight for first exercise
-      if (i === 0 && lastWeight) {
-        setWeight(String(lastWeight));
+      // Get progression suggestion for first exercise (prog_engine.md §11)
+      if (i === 0) {
+        const suggestion = await getProgressionSuggestion(exerciseId);
+        setCurrentSuggestion(suggestion);
+        if (suggestion.suggestedWeightLb > 0) {
+          setWeight(String(suggestion.suggestedWeightLb));
+        }
+        // Set reps to current ceiling if expanded
+        if (suggestion.currentCeiling > exercise.rep_range_max) {
+          setReps(String(suggestion.currentCeiling));
+        }
       }
     }
 
@@ -197,7 +209,6 @@ export default function LogWorkoutScreen() {
       if (!exercise) continue;
 
       const we = await addWorkoutExercise(workoutId, exerciseId, i);
-      const lastWeight = await getLastWeightForExercise(exerciseId);
 
       newWorkoutExercises.push({
         ...we,
@@ -205,8 +216,16 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      if (i === 0 && lastWeight) {
-        setWeight(String(lastWeight));
+      // Get progression suggestion for first exercise (prog_engine.md §11)
+      if (i === 0) {
+        const suggestion = await getProgressionSuggestion(exerciseId);
+        setCurrentSuggestion(suggestion);
+        if (suggestion.suggestedWeightLb > 0) {
+          setWeight(String(suggestion.suggestedWeightLb));
+        }
+        if (suggestion.currentCeiling > exercise.rep_range_max) {
+          setReps(String(suggestion.currentCeiling));
+        }
       }
     }
 
@@ -232,8 +251,9 @@ export default function LogWorkoutScreen() {
       const orderIndex = workoutExercises.length;
       const workoutExercise = await addWorkoutExercise(workoutId, exercise.id, orderIndex);
 
-      // Get last weight used for this exercise (from previous workouts)
-      const lastWeight = await getLastWeightForExercise(exercise.id);
+      // Get progression suggestion for this exercise (prog_engine.md §11)
+      const suggestion = await getProgressionSuggestion(exercise.id);
+      setCurrentSuggestion(suggestion);
 
       const newWorkoutExercise: WorkoutExerciseWithSets = {
         ...workoutExercise,
@@ -243,7 +263,15 @@ export default function LogWorkoutScreen() {
 
       setWorkoutExercises([...workoutExercises, newWorkoutExercise]);
       setCurrentWorkoutExercise(newWorkoutExercise);
-      setWeight(lastWeight ? String(lastWeight) : "");
+      
+      // Set weight from suggestion, or empty for first-time exercises
+      setWeight(suggestion.suggestedWeightLb > 0 ? String(suggestion.suggestedWeightLb) : "");
+      // Set reps to current ceiling if expanded
+      if (suggestion.currentCeiling > exercise.rep_range_max) {
+        setReps(String(suggestion.currentCeiling));
+      } else {
+        setReps(String(exercise.rep_range_max));
+      }
       setPickerVisible(false);
     } catch (error) {
       Alert.alert("Error", "Failed to add exercise");
@@ -252,6 +280,12 @@ export default function LogWorkoutScreen() {
 
   const selectWorkoutExercise = async (workoutExercise: WorkoutExerciseWithSets) => {
     setCurrentWorkoutExercise(workoutExercise);
+
+    // Get progression suggestion for this exercise (prog_engine.md §11)
+    const suggestion = await getProgressionSuggestion(workoutExercise.exercise_id);
+    setCurrentSuggestion(suggestion);
+
+    // If sets already logged this session, use last set values
     if (workoutExercise.sets.length > 0) {
       const lastSet = workoutExercise.sets[workoutExercise.sets.length - 1];
       setWeight(String(lastSet.weight_lb));
@@ -260,9 +294,11 @@ export default function LogWorkoutScreen() {
       return;
     }
 
-    const lastWeight = await getLastWeightForExercise(workoutExercise.exercise_id);
-    setWeight(lastWeight ? String(lastWeight) : "");
-    setReps("10");
+    // No sets yet - use progression suggestion
+    setWeight(suggestion.suggestedWeightLb > 0 ? String(suggestion.suggestedWeightLb) : "");
+    // Set reps to current ceiling (may be expanded)
+    const targetReps = suggestion.currentCeiling > 0 ? suggestion.currentCeiling : workoutExercise.exercise.rep_range_max;
+    setReps(String(targetReps));
     setRpe(undefined);
   };
 
@@ -579,6 +615,8 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await finishWorkout(workoutId);
+              // Update progression state for all exercises in this workout (prog_engine.md §10)
+              await updateProgressionAfterWorkout(workoutId);
               await promptSaveAsTemplate();
             } catch (error) {
               Alert.alert("Error", "Failed to finish workout");
@@ -750,6 +788,20 @@ export default function LogWorkoutScreen() {
                 />
               </View>
             </View>
+
+            {/* Progression suggestion message (prog_engine.md §11) */}
+            {currentSuggestion && currentWorkoutExercise?.sets.length === 0 && (
+              <View style={styles.suggestionContainer}>
+                <Text style={styles.suggestionText}>
+                  {currentSuggestion.reasonMessage}
+                </Text>
+                {currentSuggestion.currentCeiling > currentWorkoutExercise.exercise.rep_range_max && (
+                  <Text style={styles.suggestionCeiling}>
+                    Target: {currentSuggestion.currentCeiling} reps (expanded ceiling)
+                  </Text>
+                )}
+              </View>
+            )}
 
             <RPEPicker value={rpe} onChange={setRpe} />
 
@@ -1100,6 +1152,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#4CAF50",
     textAlign: "center",
+  },
+  suggestionContainer: {
+    backgroundColor: "#E3F2FD",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#2196F3",
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: "#1565C0",
+    lineHeight: 20,
+  },
+  suggestionCeiling: {
+    fontSize: 12,
+    color: "#1976D2",
+    marginTop: 4,
+    fontWeight: "500",
   },
   exerciseGroup: {
     marginBottom: 15,

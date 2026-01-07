@@ -1,4 +1,5 @@
 // components/RPEPicker.tsx
+// RPE picker with anchor labels per prog_engine.md §4
 import {
     ScrollView,
     StyleSheet,
@@ -12,19 +13,20 @@ interface RPEPickerProps {
   onChange: (rpe: number | undefined) => void;
 }
 
+// RPE anchor labels per prog_engine.md §4
+// These help improve input quality with clear descriptions
 const RPE_VALUES = [
-  { value: undefined, label: "None", description: "No RPE" },
-  { value: 6, label: "6", description: "Easy warmup" },
-  { value: 7, label: "7", description: "Could do 3+ more" },
-  { value: 8, label: "8", description: "Could do 2-3 more" },
-  { value: 9, label: "9", description: "Could do 1 more" },
-  { value: 10, label: "10", description: "Max effort" },
+  { value: undefined, label: "Skip", description: "No RPE" },
+  { value: 6, label: "6", description: "Warm-up / speed work" },
+  { value: 7, label: "7", description: "3+ reps left" },
+  { value: 8, label: "8", description: "Could do 2 more reps" },
+  { value: 9, label: "9", description: "Could do 1 more rep" },
+  { value: 10, label: "10", description: "Could not do another rep" },
 ];
 
 export function getRPEColor(rpe?: number): string {
   if (!rpe) return "#999";
-  if (rpe <= 6) return "#34C759"; // Green - Easy
-  if (rpe <= 7) return "#5AC8FA"; // Light blue - Moderate
+  if (rpe <= 7) return "#34C759"; // Green - Moderate
   if (rpe <= 8) return "#FF9500"; // Orange - Hard
   if (rpe <= 9) return "#FF3B30"; // Red - Very hard
   return "#8E44AD"; // Purple - Max

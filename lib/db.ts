@@ -81,16 +81,47 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       );
     `);
 
-    // Create progression_state table (PRD §1)
+    // Create progression_state table (prog_engine.md §3)
+    // This is a cache - can be dropped and rebuilt from workout history
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS progression_state (
         exercise_id TEXT PRIMARY KEY,
-        last_suggested_weight_lb REAL,
-        last_successful_weight_lb REAL,
-        consecutive_non_success_exposures INTEGER DEFAULT 0,
+        last_weight_lb REAL,
+        stall_count INTEGER DEFAULT 0,
+        progression_ceiling INTEGER DEFAULT 12,
+        watch_next_exposure INTEGER DEFAULT 0,
         FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
       );
     `);
+
+    // Migrate old progression_state schema to new one (prog_engine.md §3)
+    // Check if old columns exist and migrate
+    try {
+      const tableInfo = await db.getAllAsync<{ name: string }>(
+        "PRAGMA table_info(progression_state)"
+      );
+      const columns = tableInfo.map(col => col.name);
+      
+      // If old schema detected (has 'last_suggested_weight_lb' but not 'last_weight_lb')
+      if (columns.includes('last_suggested_weight_lb') && !columns.includes('last_weight_lb')) {
+        console.log('Migrating progression_state to new schema...');
+        // Drop old table and recreate - it's just a cache
+        await db.execAsync(`DROP TABLE IF EXISTS progression_state`);
+        await db.execAsync(`
+          CREATE TABLE progression_state (
+            exercise_id TEXT PRIMARY KEY,
+            last_weight_lb REAL,
+            stall_count INTEGER DEFAULT 0,
+            progression_ceiling INTEGER DEFAULT 12,
+            watch_next_exposure INTEGER DEFAULT 0,
+            FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+          );
+        `);
+        console.log('progression_state migration complete');
+      }
+    } catch {
+      // Ignore migration errors - table will work with new schema
+    }
 
     // Create routines table (split_migration.md §1)
     await db.execAsync(`
