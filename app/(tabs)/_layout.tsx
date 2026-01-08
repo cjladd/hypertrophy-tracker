@@ -35,6 +35,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="progress"
+        options={{
+          title: "Progress",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <Text style={[styles.icon, { color }]}>📈</Text>
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="history"
         options={{
           title: "History",

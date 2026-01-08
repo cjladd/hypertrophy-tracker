@@ -943,3 +943,58 @@ export async function updateProgressionAfterWorkout(workoutId: string): Promise<
     await recomputeProgressionState(exercise_id);
   }
 }
+
+// ============================================
+// PROGRESS CHARTS (PRD §3F, §5)
+// ============================================
+
+export interface ProgressDataPoint {
+  workoutDate: number; // timestamp
+  maxWeightLb: number;
+}
+
+/**
+ * Get top working weight per workout for an exercise (for progress charts)
+ * Returns data points sorted by workout date ascending
+ */
+export async function getExerciseProgressData(exerciseId: string): Promise<ProgressDataPoint[]> {
+  const db = await getDB();
+  
+  const rows = await all<{ workout_date: number; max_weight: number }>(
+    db,
+    `SELECT w.started_at as workout_date, MAX(s.weight_lb) as max_weight
+     FROM sets s
+     JOIN workout_exercises we ON s.workout_exercise_id = we.id
+     JOIN workouts w ON we.workout_id = w.id
+     WHERE we.exercise_id = ?
+       AND w.ended_at IS NOT NULL
+     GROUP BY w.id
+     ORDER BY w.started_at ASC`,
+    [exerciseId]
+  );
+
+  return rows.map(row => ({
+    workoutDate: row.workout_date,
+    maxWeightLb: row.max_weight,
+  }));
+}
+
+/**
+ * Get exercises that have been used in workouts (for progress chart exercise picker)
+ * Returns exercises with workout count, sorted by frequency
+ */
+export async function getExercisesWithWorkoutCount(): Promise<(Exercise & { workout_count: number })[]> {
+  const db = await getDB();
+  
+  return await all<Exercise & { workout_count: number }>(
+    db,
+    `SELECT e.id, e.name, e.muscle_group, e.is_custom, e.rep_range_min, e.rep_range_max,
+            COUNT(DISTINCT w.id) as workout_count
+     FROM exercises e
+     JOIN workout_exercises we ON e.id = we.exercise_id
+     JOIN workouts w ON we.workout_id = w.id
+     WHERE w.ended_at IS NOT NULL
+     GROUP BY e.id
+     ORDER BY workout_count DESC, e.name ASC`
+  );
+}
