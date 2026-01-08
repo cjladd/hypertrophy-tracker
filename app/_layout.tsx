@@ -23,9 +23,9 @@ export default function RootLayout() {
         {/* Tabs group shows the bottom tab bar */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         {/* These screens are outside tabs - no tab bar */}
-        <Stack.Screen name="log" options={{ headerShown: true, title: "Workout" }} />
-        <Stack.Screen name="exercises" options={{ headerShown: true, title: "Exercises" }} />
-        <Stack.Screen name="templates" options={{ headerShown: true, title: "Templates" }} />
+        <Stack.Screen name="log" options={{ headerShown: true, title: "Workout", headerBackTitle: "Home" }} />
+        <Stack.Screen name="exercises" options={{ headerShown: true, title: "Exercises", headerBackTitle: "Home" }} />
+        <Stack.Screen name="templates" options={{ headerShown: true, title: "Templates", headerBackTitle: "Home" }} />
       </Stack>
     </SettingsProvider>
   );

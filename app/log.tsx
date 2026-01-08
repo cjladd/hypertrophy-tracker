@@ -17,8 +17,11 @@ import {
     getNextRoutineDay,
     getProgressionSuggestion,
     getRoutineDayById,
+    getSetsForWorkoutExercise,
     getTemplate,
     getTemplates,
+    getWorkout,
+    getWorkoutExercises,
     removeWorkoutExercise,
     startWorkout,
     startWorkoutFromRoutineDay,
@@ -27,7 +30,7 @@ import {
     updateTemplate
 } from "@/lib/repo";
 import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -45,9 +48,10 @@ interface WorkoutExerciseWithSets extends WorkoutExercise {
   sets: Set[];
 }
 
-type StartMode = 'empty' | 'repeat' | 'template' | 'routine';
+type StartMode = 'empty' | 'repeat' | 'template' | 'routine' | 'continue';
 
 export default function LogWorkoutScreen() {
+  const { continueWorkoutId } = useLocalSearchParams<{ continueWorkoutId?: string }>();
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [workoutStarted, setWorkoutStarted] = useState(false);
   const [startMode, setStartMode] = useState<StartMode | null>(null);
@@ -89,7 +93,7 @@ export default function LogWorkoutScreen() {
   const [editReps, setEditReps] = useState("");
   const [editRpe, setEditRpe] = useState<string>("");
 
-  // Load data for start screen
+  // Load data for start screen or resume existing workout
   useEffect(() => {
     const loadStartData = async () => {
       try {
@@ -109,12 +113,78 @@ export default function LogWorkoutScreen() {
           const nextDay = await getNextRoutineDay(routine.id);
           setNextRoutineDay(nextDay);
         }
+
+        // If continueWorkoutId is passed, resume that workout
+        if (continueWorkoutId) {
+          await resumeWorkout(continueWorkoutId, exercisesData);
+        }
       } catch (error) {
         console.error("Failed to load start data:", error);
       }
     };
     loadStartData();
-  }, []);
+  }, [continueWorkoutId]);
+
+  // Resume an existing workout
+  const resumeWorkout = async (workoutIdToResume: string, exercises: Exercise[]) => {
+    try {
+      const workout = await getWorkout(workoutIdToResume);
+      if (!workout || workout.ended_at) {
+        Alert.alert("Error", "Workout not found or already finished");
+        return;
+      }
+
+      setWorkoutId(workout.id);
+      setStartMode('continue');
+      setTemplateId(workout.template_id);
+      setRoutineDayId(workout.routine_day_id);
+
+      // Load existing workout exercises and sets
+      const workoutExercisesData = await getWorkoutExercises(workout.id);
+      const workoutExercisesWithSets: WorkoutExerciseWithSets[] = [];
+
+      for (const we of workoutExercisesData) {
+        const exercise = exercises.find((e) => e.id === we.exercise_id);
+        if (!exercise) continue;
+
+        const sets = await getSetsForWorkoutExercise(we.id);
+        workoutExercisesWithSets.push({
+          ...we,
+          exercise,
+          sets,
+        });
+      }
+
+      setWorkoutExercises(workoutExercisesWithSets);
+      if (workoutExercisesWithSets.length > 0) {
+        // Select the first exercise that doesn't have sets yet, or the first one
+        const firstIncomplete = workoutExercisesWithSets.find((we) => we.sets.length === 0);
+        const toSelect = firstIncomplete ?? workoutExercisesWithSets[0];
+        setCurrentWorkoutExercise(toSelect);
+
+        // Get progression suggestion
+        const suggestion = await getProgressionSuggestion(toSelect.exercise_id);
+        setCurrentSuggestion(suggestion);
+
+        // Set form values based on existing sets or suggestion
+        if (toSelect.sets.length > 0) {
+          const lastSet = toSelect.sets[toSelect.sets.length - 1];
+          setWeight(String(lastSet.weight_lb));
+          setReps(String(lastSet.reps));
+          setRpe(lastSet.rpe ?? undefined);
+        } else {
+          setWeight(suggestion.suggestedWeightLb > 0 ? String(suggestion.suggestedWeightLb) : "");
+          const targetReps = suggestion.currentCeiling > 0 ? suggestion.currentCeiling : toSelect.exercise.rep_range_max;
+          setReps(String(targetReps));
+        }
+      }
+
+      setWorkoutStarted(true);
+    } catch (error) {
+      console.error("Failed to resume workout:", error);
+      Alert.alert("Error", "Failed to resume workout");
+    }
+  };
 
   // Start workout from routine day (split_migration.md §4)
   const handleStartRoutineWorkout = async () => {
@@ -275,6 +345,18 @@ export default function LogWorkoutScreen() {
       setPickerVisible(false);
     } catch (error) {
       Alert.alert("Error", "Failed to add exercise");
+    }
+  };
+
+  const goToNextExercise = async () => {
+    if (!currentWorkoutExercise || workoutExercises.length === 0) return;
+    
+    const currentIndex = workoutExercises.findIndex(
+      (we) => we.id === currentWorkoutExercise.id
+    );
+    
+    if (currentIndex < workoutExercises.length - 1) {
+      await selectWorkoutExercise(workoutExercises[currentIndex + 1]);
     }
   };
 
@@ -746,16 +828,30 @@ export default function LogWorkoutScreen() {
         {/* Exercise Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Exercise</Text>
-          <TouchableOpacity
-            style={styles.exerciseButton}
-            onPress={() => setPickerVisible(true)}
-          >
-            <Text style={styles.exerciseButtonText}>
-              {currentWorkoutExercise
-                ? currentWorkoutExercise.exercise.name
-                : "Select Exercise"}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.exerciseRow}>
+            <TouchableOpacity
+              style={styles.exerciseButton}
+              onPress={() => setPickerVisible(true)}
+            >
+              <Text style={styles.exerciseButtonText}>
+                {currentWorkoutExercise
+                  ? currentWorkoutExercise.exercise.name
+                  : "Select Exercise"}
+              </Text>
+            </TouchableOpacity>
+            {currentWorkoutExercise && workoutExercises.length > 1 && (
+              <TouchableOpacity
+                style={styles.nextExerciseButton}
+                onPress={goToNextExercise}
+                disabled={workoutExercises.findIndex((we) => we.id === currentWorkoutExercise.id) >= workoutExercises.length - 1}
+              >
+                <Text style={[
+                  styles.nextExerciseText,
+                  workoutExercises.findIndex((we) => we.id === currentWorkoutExercise.id) >= workoutExercises.length - 1 && styles.nextExerciseDisabled
+                ]}>→</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Set Input */}
@@ -1104,11 +1200,32 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 15,
   },
+  exerciseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   exerciseButton: {
+    flex: 1,
     backgroundColor: "#f0f0f0",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
+  },
+  nextExerciseButton: {
+    backgroundColor: "#007AFF",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nextExerciseText: {
+    fontSize: 18,
+    color: "white",
+    fontWeight: "bold",
+  },
+  nextExerciseDisabled: {
+    opacity: 0.3,
   },
   exerciseButtonText: {
     fontSize: 16,

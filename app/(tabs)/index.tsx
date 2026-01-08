@@ -1,17 +1,23 @@
-﻿import { listRecentWorkouts } from "@/lib/repo";
+﻿import { getActiveWorkoutFromToday, listRecentWorkouts } from "@/lib/repo";
+import type { Workout } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
   const [workouts, setWorkouts] = useState<any[]>([]);
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const wk = await listRecentWorkouts(10);
+      const [wk, active] = await Promise.all([
+        listRecentWorkouts(10),
+        getActiveWorkoutFromToday(),
+      ]);
       setWorkouts(wk);
+      setActiveWorkout(active);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -61,11 +67,19 @@ export default function Index() {
 
       {/* Quick Actions */}
       <View style={styles.actionsSection}>
-        <Link href="/log" asChild>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Start Workout</Text>
-          </TouchableOpacity>
-        </Link>
+        {activeWorkout ? (
+          <Link href={`/log?continueWorkoutId=${activeWorkout.id}`} asChild>
+            <TouchableOpacity style={styles.continueButton}>
+              <Text style={styles.continueButtonText}>Continue Workout</Text>
+            </TouchableOpacity>
+          </Link>
+        ) : (
+          <Link href="/log" asChild>
+            <TouchableOpacity style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Start Workout</Text>
+            </TouchableOpacity>
+          </Link>
+        )}
 
         <Link href="/templates" asChild>
           <TouchableOpacity style={styles.secondaryButton}>
@@ -174,6 +188,22 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  continueButton: {
+    backgroundColor: "#34C759",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  continueButtonText: {
     color: "white",
     fontSize: 18,
     fontWeight: "bold",

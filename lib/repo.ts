@@ -340,6 +340,27 @@ export async function getLastWorkout(): Promise<Workout | null> {
   );
 }
 
+/**
+ * Get an active (unfinished) workout that was started today.
+ * Returns null if no active workout from today exists.
+ */
+export async function getActiveWorkoutFromToday(): Promise<Workout | null> {
+  const db = await getDB();
+  // Calculate start of today (midnight) in milliseconds
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  
+  return await get<Workout>(
+    db,
+    `SELECT id, started_at, ended_at, template_id, routine_day_id, notes
+     FROM workouts
+     WHERE ended_at IS NULL AND started_at >= ?
+     ORDER BY started_at DESC
+     LIMIT 1`,
+    [startOfToday]
+  );
+}
+
 // ============================================
 // WORKOUT EXERCISES (junction table)
 // ============================================
