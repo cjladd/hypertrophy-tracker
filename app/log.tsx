@@ -27,7 +27,8 @@ import {
     startWorkoutFromRoutineDay,
     updateProgressionAfterWorkout,
     updateSet,
-    updateTemplate
+    updateTemplate,
+    updateWorkoutExerciseOrder
 } from "@/lib/repo";
 import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -507,19 +508,22 @@ export default function LogWorkoutScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteSet(editingSet.id);
+          onPress: async () => {
+            try {
+              await deleteSet(editingSet.id);
 
-            // Update local state - remove the set and re-index remaining sets
-            const updatedSets = editingWorkoutExercise.sets
-              .filter((s) => s.id !== editingSet.id)
-              .map((s, idx) => ({ ...s, set_index: idx + 1 }));
-            const updatedWorkoutExercise = { ...editingWorkoutExercise, sets: updatedSets };
+              // Update local state - remove the set and re-index remaining sets
+              const updatedSets = editingWorkoutExercise.sets
+                .filter((s) => s.id !== editingSet.id)
+                .map((s, idx) => ({ ...s, set_index: idx + 1 }));
+              await Promise.all(
+                updatedSets.map((s) => updateSet(s.id, { setIndex: s.set_index }))
+              );
+              const updatedWorkoutExercise = { ...editingWorkoutExercise, sets: updatedSets };
 
-            setWorkoutExercises((prev) =>
-              prev.map((we) => (we.id === editingWorkoutExercise.id ? updatedWorkoutExercise : we))
-            );
+              setWorkoutExercises((prev) =>
+                prev.map((we) => (we.id === editingWorkoutExercise.id ? updatedWorkoutExercise : we))
+              );
 
             if (currentWorkoutExercise?.id === editingWorkoutExercise.id) {
               setCurrentWorkoutExercise(updatedWorkoutExercise);
@@ -549,10 +553,21 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await removeWorkoutExercise(workoutExerciseId);
-              const updated = workoutExercises.filter((w) => w.id !== workoutExerciseId);
-              setWorkoutExercises(updated);
+              const remaining = workoutExercises.filter((w) => w.id !== workoutExerciseId);
+              const reindexed = remaining.map((item, index) => ({
+                ...item,
+                order_index: index,
+              }));
+              await Promise.all(
+                reindexed.map((item) => updateWorkoutExerciseOrder(item.id, item.order_index))
+              );
+              setWorkoutExercises(reindexed);
               if (currentWorkoutExercise?.id === workoutExerciseId) {
-                setCurrentWorkoutExercise(updated[0] ?? null);
+                if (reindexed[0]) {
+                  await selectWorkoutExercise(reindexed[0]);
+                } else {
+                  setCurrentWorkoutExercise(null);
+                }
               }
             } catch (error) {
               Alert.alert("Error", "Failed to remove exercise");

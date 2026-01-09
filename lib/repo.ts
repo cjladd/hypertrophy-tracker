@@ -426,7 +426,7 @@ export async function addSet(args: {
 
 export async function updateSet(
   setId: string,
-  updates: { weightLb?: number; reps?: number; rpe?: number | null }
+  updates: { weightLb?: number; reps?: number; rpe?: number | null; setIndex?: number }
 ): Promise<void> {
   const db = await getDB();
   const fields: string[] = [];
@@ -443,6 +443,10 @@ export async function updateSet(
   if (updates.rpe !== undefined) {
     fields.push('rpe = ?');
     values.push(updates.rpe);
+  }
+  if (updates.setIndex !== undefined) {
+    fields.push('set_index = ?');
+    values.push(updates.setIndex);
   }
 
   if (fields.length === 0) return;

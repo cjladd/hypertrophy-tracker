@@ -9,7 +9,7 @@ import {
 import type { Exercise, MuscleGroup } from "@/lib/types";
 import { MUSCLE_GROUPS } from "@/lib/types";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Dimensions,
     Modal,
@@ -43,6 +43,11 @@ export default function ProgressScreen() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [filterMuscleGroup, setFilterMuscleGroup] = useState<MuscleGroup | null>(null);
+  const selectedExerciseRef = useRef<ExerciseWithCount | null>(null);
+
+  useEffect(() => {
+    selectedExerciseRef.current = selectedExercise;
+  }, [selectedExercise]);
 
   const loadExercises = async () => {
     try {
@@ -50,9 +55,19 @@ export default function ProgressScreen() {
       const exercisesWithCount = await getExercisesWithWorkoutCount();
       setExercises(exercisesWithCount);
 
-      // Auto-select the most frequently used exercise if none selected
-      if (!selectedExercise && exercisesWithCount.length > 0) {
+      if (exercisesWithCount.length === 0) {
+        setSelectedExercise(null);
+        setChartData([]);
+        return;
+      }
+
+      // Refresh chart for the current selection, or default to most frequent
+      const currentSelection = selectedExerciseRef.current;
+      if (!currentSelection) {
         await selectExercise(exercisesWithCount[0]);
+      } else {
+        const refreshed = exercisesWithCount.find((e) => e.id === currentSelection.id);
+        await selectExercise(refreshed ?? exercisesWithCount[0]);
       }
     } catch (error) {
       console.error("Failed to load exercises:", error);
@@ -80,15 +95,6 @@ export default function ProgressScreen() {
   useFocusEffect(
     useCallback(() => {
       loadExercises();
-    }, [])
-  );
-
-  // Reload chart when exercise changes
-  useFocusEffect(
-    useCallback(() => {
-      if (selectedExercise) {
-        selectExercise(selectedExercise);
-      }
     }, [])
   );
 

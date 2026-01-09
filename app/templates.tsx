@@ -288,7 +288,7 @@ export default function TemplatesScreen() {
 
               {selectedExerciseIds.length === 0 ? (
                 <Text style={styles.noExercisesText}>
-                  No exercises added yet. Tap "+ Add" to add exercises.
+                  No exercises added yet. Tap &quot;+ Add&quot; to add exercises.
                 </Text>
               ) : (
                 selectedExerciseIds.map((exerciseId, index) => {

@@ -28,6 +28,8 @@ export default function ExercisesScreen() {
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [formName, setFormName] = useState("");
   const [formMuscleGroup, setFormMuscleGroup] = useState<MuscleGroup>("chest");
+  const [formRepRangeMin, setFormRepRangeMin] = useState("8");
+  const [formRepRangeMax, setFormRepRangeMax] = useState("12");
 
   useEffect(() => {
     loadExercises();
@@ -76,6 +78,24 @@ export default function ExercisesScreen() {
       return;
     }
 
+    const repMin = parseInt(formRepRangeMin, 10);
+    const repMax = parseInt(formRepRangeMax, 10);
+
+    if (isNaN(repMin) || isNaN(repMax) || repMin < 1 || repMax < 1) {
+      Alert.alert("Error", "Rep range values must be positive numbers");
+      return;
+    }
+
+    if (repMin > repMax) {
+      Alert.alert("Error", "Minimum reps cannot be greater than maximum reps");
+      return;
+    }
+
+    if (repMax > 30) {
+      Alert.alert("Error", "Maximum reps should be 30 or less");
+      return;
+    }
+
     const nameExists = exercises.some((ex) => {
       const existingName = normalizeName(ex.name).toLowerCase();
       const candidateName = normalizedName.toLowerCase();
@@ -89,14 +109,21 @@ export default function ExercisesScreen() {
 
     try {
       if (editingExercise) {
-        await updateExercise(editingExercise.id, { name: normalizedName, muscleGroup: formMuscleGroup });
+        await updateExercise(editingExercise.id, {
+          name: normalizedName,
+          muscleGroup: formMuscleGroup,
+          repRangeMin: repMin,
+          repRangeMax: repMax,
+        });
       } else {
-        await addExercise(normalizedName, formMuscleGroup);
+        await addExercise(normalizedName, formMuscleGroup, repMin, repMax);
       }
       
       setModalVisible(false);
       setFormName("");
       setFormMuscleGroup("chest");
+      setFormRepRangeMin("8");
+      setFormRepRangeMax("12");
       setEditingExercise(null);
       loadExercises();
     } catch (error) {
@@ -108,6 +135,8 @@ export default function ExercisesScreen() {
     setEditingExercise(exercise);
     setFormName(exercise.name);
     setFormMuscleGroup(exercise.muscle_group);
+    setFormRepRangeMin(String(exercise.rep_range_min));
+    setFormRepRangeMax(String(exercise.rep_range_max));
     setModalVisible(true);
   };
 
@@ -137,6 +166,8 @@ export default function ExercisesScreen() {
     setEditingExercise(null);
     setFormName("");
     setFormMuscleGroup("chest");
+    setFormRepRangeMin("8");
+    setFormRepRangeMax("12");
     setModalVisible(true);
   };
 
@@ -146,7 +177,10 @@ export default function ExercisesScreen() {
         <Text style={styles.exerciseName}>{item.name}</Text>
         <View style={styles.tagContainer}>
           <View style={styles.muscleTag}>
-            <Text style={styles.muscleTagText}>{item.muscle_group}</Text>
+            <Text style={styles.muscleTagText}>{item.muscle_group.replace('_', ' ')}</Text>
+          </View>
+          <View style={styles.repRangeTag}>
+            <Text style={styles.repRangeTagText}>{item.rep_range_min}-{item.rep_range_max} reps</Text>
           </View>
           {item.is_custom === 1 && (
             <View style={styles.customTag}>
@@ -278,6 +312,34 @@ export default function ExercisesScreen() {
               ))}
             </ScrollView>
 
+            <Text style={styles.label}>Rep Range (for progression)</Text>
+            <View style={styles.repRangeRow}>
+              <View style={styles.repRangeField}>
+                <Text style={styles.repRangeLabel}>Min</Text>
+                <TextInput
+                  style={styles.repRangeInput}
+                  keyboardType="numeric"
+                  value={formRepRangeMin}
+                  onChangeText={setFormRepRangeMin}
+                  placeholder="8"
+                  maxLength={2}
+                />
+              </View>
+              <Text style={styles.repRangeDash}>–</Text>
+              <View style={styles.repRangeField}>
+                <Text style={styles.repRangeLabel}>Max</Text>
+                <TextInput
+                  style={styles.repRangeInput}
+                  keyboardType="numeric"
+                  value={formRepRangeMax}
+                  onChangeText={setFormRepRangeMax}
+                  placeholder="12"
+                  maxLength={2}
+                />
+              </View>
+              <Text style={styles.repRangeHint}>reps</Text>
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalButton}
@@ -386,6 +448,16 @@ const styles = StyleSheet.create({
   muscleTagText: {
     fontSize: 12,
     color: "#1976D2",
+  },
+  repRangeTag: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  repRangeTagText: {
+    fontSize: 12,
+    color: "#388E3C",
   },
   customTag: {
     backgroundColor: "#FFF3E0",
@@ -504,6 +576,40 @@ const styles = StyleSheet.create({
   muscleGroupOptionTextActive: {
     color: "white",
     fontWeight: "600",
+  },
+  repRangeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 8,
+  },
+  repRangeField: {
+    alignItems: "center",
+  },
+  repRangeLabel: {
+    fontSize: 12,
+    color: "#8E8E93",
+    marginBottom: 4,
+  },
+  repRangeInput: {
+    backgroundColor: "#f0f0f0",
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 18,
+    fontWeight: "600",
+    width: 60,
+    textAlign: "center",
+  },
+  repRangeDash: {
+    fontSize: 18,
+    color: "#666",
+    marginTop: 16,
+  },
+  repRangeHint: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 16,
+    marginLeft: 4,
   },
   modalActions: {
     flexDirection: "row",

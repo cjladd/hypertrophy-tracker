@@ -120,6 +120,23 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Units Toggle Placeholder (Post-v1 Feature) */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Units</Text>
+        <View style={styles.unitToggleRow}>
+          <Text style={styles.unitLabel}>Weight Unit</Text>
+          <View style={styles.unitToggle}>
+            <View style={[styles.unitOption, styles.unitOptionActive]}>
+              <Text style={[styles.unitOptionText, styles.unitOptionTextActive]}>lb</Text>
+            </View>
+            <View style={[styles.unitOption, styles.unitOptionDisabled]}>
+              <Text style={[styles.unitOptionText, styles.unitOptionTextDisabled]}>kg</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.unitNote}>Kilogram support coming in a future update</Text>
+      </View>
+
       {/* Manage Split Days (split_migration.md §7) */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Training Routine</Text>
@@ -345,5 +362,49 @@ const styles = StyleSheet.create({
   noRoutineText: {
     color: "#666",
     fontSize: 14,
+  },
+  // Unit toggle styles
+  unitToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  unitLabel: {
+    fontSize: 15,
+    color: "#333",
+  },
+  unitToggle: {
+    flexDirection: "row",
+    backgroundColor: "#E5E5EA",
+    borderRadius: 8,
+    padding: 2,
+  },
+  unitOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  unitOptionActive: {
+    backgroundColor: "#007AFF",
+  },
+  unitOptionDisabled: {
+    opacity: 0.5,
+  },
+  unitOptionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  unitOptionTextActive: {
+    color: "white",
+  },
+  unitOptionTextDisabled: {
+    color: "#8E8E93",
+  },
+  unitNote: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#8E8E93",
+    fontStyle: "italic",
   },
 });
