@@ -1,16 +1,12 @@
-import { useSettings } from "@/context/SettingsContext";
-import { getActiveWorkoutFromToday, getNextRoutineDay, getRoutineById, listRecentWorkouts } from "@/lib/repo";
-import type { Routine, RoutineDay, Workout } from "@/lib/types";
+import { getActiveWorkoutFromToday, listRecentWorkouts } from "@/lib/repo";
+import type { Workout } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
-  const { activeRoutineId } = useSettings();
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
-  const [activeRoutine, setActiveRoutine] = useState<Routine | null>(null);
-  const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
@@ -23,19 +19,6 @@ export default function Index() {
       setWorkouts(wk);
       setActiveWorkout(active);
 
-      if (activeRoutineId) {
-        const routine = await getRoutineById(activeRoutineId);
-        setActiveRoutine(routine);
-        if (routine) {
-          const nextDay = await getNextRoutineDay(routine.id);
-          setNextRoutineDay(nextDay);
-        } else {
-          setNextRoutineDay(null);
-        }
-      } else {
-        setActiveRoutine(null);
-        setNextRoutineDay(null);
-      }
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -47,7 +30,7 @@ export default function Index() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [activeRoutineId])
+    }, [])
   );
 
   // Calculate useful stats
@@ -82,31 +65,6 @@ export default function Index() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Hypertrophy Tracker</Text>
       <Text style={styles.subtitle}>Your workout companion</Text>
-
-      {/* Routine CTA */}
-      {activeRoutineId && activeRoutine && nextRoutineDay ? (
-        <View style={styles.routineCard}>
-          <Text style={styles.routineLabel}>Next routine day</Text>
-          <Text style={styles.routineTitle}>
-            {activeRoutine.name}: {nextRoutineDay.name}
-          </Text>
-          <Link href="/log" asChild>
-            <TouchableOpacity style={styles.routineButton}>
-              <Text style={styles.routineButtonText}>Continue Routine</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      ) : (
-        <View style={styles.routineCard}>
-          <Text style={styles.routineLabel}>No routine selected</Text>
-          <Text style={styles.routineTitle}>Choose a routine to get day-by-day guidance.</Text>
-          <Link href="/routines" asChild>
-            <TouchableOpacity style={styles.routineButton}>
-              <Text style={styles.routineButtonText}>Choose Routine</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      )}
 
       {/* Quick Actions */}
       <View style={styles.actionsSection}>
@@ -214,41 +172,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     marginBottom: 30,
-  },
-  routineCard: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  routineLabel: {
-    fontSize: 12,
-    color: "#8E8E93",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  routineTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 12,
-  },
-  routineButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  routineButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
   },
   actionsSection: {
     marginBottom: 25,
