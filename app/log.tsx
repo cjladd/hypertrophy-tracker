@@ -5,13 +5,15 @@
 
 import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
+import { Ionicons } from "@expo/vector-icons";
+import { useSettings } from "@/context/SettingsContext";
 import {
     addSet,
     addWorkoutExercise,
     createTemplate,
     deleteSet,
     finishWorkout,
-    getDefaultRoutine,
+    getRoutineById,
     getExercises,
     getLastWorkoutExerciseIds,
     getNextRoutineDay,
@@ -53,6 +55,7 @@ type StartMode = 'empty' | 'repeat' | 'template' | 'routine' | 'continue';
 
 export default function LogWorkoutScreen() {
   const { continueWorkoutId } = useLocalSearchParams<{ continueWorkoutId?: string }>();
+  const { activeRoutineId } = useSettings();
   const [workoutId, setWorkoutId] = useState<string | null>(null);
   const [workoutStarted, setWorkoutStarted] = useState(false);
   const [startMode, setStartMode] = useState<StartMode | null>(null);
@@ -69,7 +72,7 @@ export default function LogWorkoutScreen() {
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
   // Routine state (split_migration.md §4)
-  const [defaultRoutine, setDefaultRoutine] = useState<Routine | null>(null);
+  const [activeRoutine, setActiveRoutine] = useState<Routine | null>(null);
   const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
 
   // Template save modal state
@@ -98,21 +101,26 @@ export default function LogWorkoutScreen() {
   useEffect(() => {
     const loadStartData = async () => {
       try {
-        const [templatesData, lastExerciseIds, exercisesData, routine] = await Promise.all([
+        const [templatesData, lastExerciseIds, exercisesData] = await Promise.all([
           getTemplates(),
           getLastWorkoutExerciseIds(),
           getExercises(),
-          getDefaultRoutine(),
         ]);
         setTemplates(templatesData);
         setHasLastWorkout(lastExerciseIds.length > 0);
         setAllExercises(exercisesData);
-        setDefaultRoutine(routine);
-
-        // Get next routine day if routine exists
-        if (routine) {
-          const nextDay = await getNextRoutineDay(routine.id);
-          setNextRoutineDay(nextDay);
+        if (activeRoutineId) {
+          const routine = await getRoutineById(activeRoutineId);
+          setActiveRoutine(routine);
+          if (routine) {
+            const nextDay = await getNextRoutineDay(routine.id);
+            setNextRoutineDay(nextDay);
+          } else {
+            setNextRoutineDay(null);
+          }
+        } else {
+          setActiveRoutine(null);
+          setNextRoutineDay(null);
         }
 
         // If continueWorkoutId is passed, resume that workout
@@ -124,7 +132,7 @@ export default function LogWorkoutScreen() {
       }
     };
     loadStartData();
-  }, [continueWorkoutId]);
+  }, [continueWorkoutId, activeRoutineId]);
 
   // Resume an existing workout
   const resumeWorkout = async (workoutIdToResume: string, exercises: Exercise[]) => {
@@ -733,15 +741,15 @@ export default function LogWorkoutScreen() {
           <Text style={styles.startSubtitle}>Choose how to start</Text>
 
           {/* Continue Routine - Primary CTA (split_migration.md §4) */}
-          {nextRoutineDay && defaultRoutine && (
+          {nextRoutineDay && activeRoutine && (
             <TouchableOpacity
               style={[styles.startOptionButton, styles.startOptionRoutine]}
               onPress={handleStartRoutineWorkout}
             >
-              <Text style={styles.startOptionIcon}>🏋️</Text>
+              <Ionicons name="calendar-outline" size={24} color="#fff" style={styles.startOptionIcon} />
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>
-                  Continue {defaultRoutine.name}: {nextRoutineDay.name}
+                  Continue {activeRoutine.name}: {nextRoutineDay.name}
                 </Text>
                 <Text style={styles.startOptionDesc}>Next day in your routine</Text>
               </View>
@@ -754,7 +762,7 @@ export default function LogWorkoutScreen() {
               style={[styles.startOptionButton, styles.startOptionPrimary]}
               onPress={() => handleStartWorkout('repeat')}
             >
-              <Text style={styles.startOptionIcon}>↻</Text>
+              <Ionicons name="repeat" size={24} color="#fff" style={styles.startOptionIcon} />
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Repeat Last Workout</Text>
                 <Text style={styles.startOptionDesc}>Same exercises as your last session</Text>
@@ -768,7 +776,7 @@ export default function LogWorkoutScreen() {
               style={[styles.startOptionButton, styles.startOptionSecondary]}
               onPress={() => setTemplatePickerVisible(true)}
             >
-              <Text style={styles.startOptionIcon}>T</Text>
+              <Ionicons name="list-outline" size={24} color="#fff" style={styles.startOptionIcon} />
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Choose Template</Text>
                 <Text style={styles.startOptionDesc}>{templates.length} saved template{templates.length !== 1 ? 's' : ''}</Text>
@@ -781,7 +789,7 @@ export default function LogWorkoutScreen() {
             style={[styles.startOptionButton, styles.startOptionEmpty]}
             onPress={() => handleStartWorkout('empty')}
           >
-            <Text style={styles.startOptionIcon}>+</Text>
+            <Ionicons name="add-circle-outline" size={24} color="#fff" style={styles.startOptionIcon} />
             <View style={styles.startOptionContent}>
               <Text style={styles.startOptionTitle}>Start Empty</Text>
               <Text style={styles.startOptionDesc}>Add exercises as you go</Text>
@@ -1143,7 +1151,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF9500",
   },
   startOptionIcon: {
-    fontSize: 28,
     marginRight: 16,
   },
   startOptionContent: {

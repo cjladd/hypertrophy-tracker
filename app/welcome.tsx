@@ -1,19 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useSettings } from "@/context/SettingsContext";
 import { getRoutineDays, listRoutines } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
 
 type RoutineWithDays = Routine & { days: RoutineDay[] };
 
@@ -32,11 +30,12 @@ export default function Welcome() {
   const loadRoutines = async () => {
     try {
       const allRoutines = await listRoutines();
-      const routinesWithDays: RoutineWithDays[] = [];
-      for (const routine of allRoutines) {
-        const days = await getRoutineDays(routine.id);
-        routinesWithDays.push({ ...routine, days });
-      }
+      const routinesWithDays = await Promise.all(
+        allRoutines.map(async (routine) => ({
+          ...routine,
+          days: await getRoutineDays(routine.id),
+        }))
+      );
       setRoutines(routinesWithDays);
     } catch (err) {
       console.error("Failed to load routines:", err);
@@ -97,14 +96,14 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <View style={styles.stepContainer}>
       <View style={styles.heroSection}>
-        <Text style={styles.appIcon}>🏋️</Text>
+        <Ionicons name="barbell-outline" size={72} color="#007AFF" style={styles.appIcon} />
         <Text style={styles.title}>Hypertrophy Tracker</Text>
         <Text style={styles.subtitle}>Your personal strength coach</Text>
       </View>
       <View style={styles.featureList}>
-        <FeatureItem icon="📊" text="Track your workouts and progress" />
-        <FeatureItem icon="📈" text="Smart progression suggestions" />
-        <FeatureItem icon="💪" text="Build muscle with proven methods" />
+        <FeatureItem iconName="checkmark-circle-outline" text="Track your workouts and progress" />
+        <FeatureItem iconName="stats-chart-outline" text="Smart progression suggestions" />
+        <FeatureItem iconName="bar-chart-outline" text="Build muscle with proven methods" />
       </View>
       <View style={styles.welcomeButtonContainer}>
         <TouchableOpacity style={styles.welcomeButton} onPress={onNext}>
@@ -140,7 +139,7 @@ function IntroStep({ onNext, onBack }: { onNext: () => void; onBack: () => void 
       <View style={styles.methodBox}>
         <Text style={styles.methodTitle}>Triple Progression Method</Text>
         <Text style={styles.methodText}>
-          First increase reps to your ceiling, then expand the ceiling (to 15, then 20) when 
+          First increase reps to your ceiling, then expand the ceiling (to 15, then 20) when
           weight jumps are too large, then add weight. This prevents plateaus and maximizes growth.
         </Text>
       </View>
@@ -177,13 +176,16 @@ function RoutineStep({
   const getRoutineDescription = (routine: RoutineWithDays): string => {
     const dayCount = routine.days.length;
     if (routine.name === "PPL") {
-      return `${dayCount}-day split • Push, Pull, Legs cycle`;
-    } else if (routine.name === "Upper/Lower") {
-      return `${dayCount}-day split • Alternating upper and lower body`;
-    } else if (routine.name === "Full Body") {
-      return `${dayCount}-day split • Train everything each session`;
-    } else if (routine.name === "Bro Split") {
-      return `${dayCount}-day split • One muscle group per day`;
+      return `${dayCount}-day split - Push, Pull, Legs cycle`;
+    }
+    if (routine.name === "Upper/Lower") {
+      return `${dayCount}-day split - Alternating upper and lower body`;
+    }
+    if (routine.name === "Full Body") {
+      return `${dayCount}-day split - Train everything each session`;
+    }
+    if (routine.name === "Bro Split") {
+      return `${dayCount}-day split - One muscle group per day`;
     }
     return `${dayCount} days per cycle`;
   };
@@ -210,14 +212,14 @@ function RoutineStep({
               <View style={styles.routineHeader}>
                 <Text style={styles.routineName}>{routine.name}</Text>
                 {selectedRoutineId === routine.id && (
-                  <Text style={styles.checkmark}>✓</Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#007AFF" />
                 )}
               </View>
               <Text style={styles.routineDescription}>
                 {getRoutineDescription(routine)}
               </Text>
               <Text style={styles.routineDays}>
-                {routine.days.map((d) => d.name).join(" → ")}
+                {routine.days.map((d) => d.name).join(" -> ")}
               </Text>
             </TouchableOpacity>
           ))}
@@ -229,7 +231,7 @@ function RoutineStep({
         </TouchableOpacity>
         {selectedRoutineId ? (
           <TouchableOpacity style={styles.primaryButton} onPress={onComplete}>
-            <Text style={styles.primaryButtonText}>Let's Go!</Text>
+            <Text style={styles.primaryButtonText}>Let&#39;s Go!</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
@@ -242,10 +244,10 @@ function RoutineStep({
 }
 
 // Helper Components
-function FeatureItem({ icon, text }: { icon: string; text: string }) {
+function FeatureItem({ iconName, text }: { iconName: keyof typeof Ionicons.glyphMap; text: string }) {
   return (
     <View style={styles.featureItem}>
-      <Text style={styles.featureIcon}>{icon}</Text>
+      <Ionicons name={iconName} size={22} color="#007AFF" style={styles.featureIcon} />
       <Text style={styles.featureText}>{text}</Text>
     </View>
   );
@@ -309,7 +311,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   appIcon: {
-    fontSize: 80,
     marginBottom: 16,
   },
   title: {
@@ -332,7 +333,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   featureIcon: {
-    fontSize: 28,
     marginRight: 16,
   },
   featureText: {
@@ -500,11 +500,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-  },
-  checkmark: {
-    fontSize: 20,
-    color: "#007AFF",
-    fontWeight: "bold",
   },
   routineDescription: {
     fontSize: 14,

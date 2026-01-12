@@ -1,5 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 export default function TabLayout() {
   return (
@@ -18,7 +19,11 @@ export default function TabLayout() {
           title: "Settings",
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Text style={[styles.icon, { color }]}>⚙️</Text>
+              <Ionicons
+                name={focused ? "settings" : "settings-outline"}
+                size={22}
+                color={color}
+              />
             </View>
           ),
         }}
@@ -29,7 +34,11 @@ export default function TabLayout() {
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Text style={[styles.icon, { color }]}>🏠</Text>
+              <Ionicons
+                name={focused ? "home" : "home-outline"}
+                size={22}
+                color={color}
+              />
             </View>
           ),
         }}
@@ -40,7 +49,11 @@ export default function TabLayout() {
           title: "Progress",
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Text style={[styles.icon, { color }]}>📈</Text>
+              <Ionicons
+                name={focused ? "stats-chart" : "stats-chart-outline"}
+                size={22}
+                color={color}
+              />
             </View>
           ),
         }}
@@ -51,7 +64,11 @@ export default function TabLayout() {
           title: "History",
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
-              <Text style={[styles.icon, { color }]}>📖</Text>
+              <Ionicons
+                name={focused ? "time" : "time-outline"}
+                size={22}
+                color={color}
+              />
             </View>
           ),
         }}
@@ -76,8 +93,5 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  icon: {
-    fontSize: 24,
   },
 });

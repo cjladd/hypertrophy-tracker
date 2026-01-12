@@ -1,16 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useSettings } from "@/context/SettingsContext";
 import { getRoutineDays, listRoutines } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 type RoutineWithDays = Routine & { days: RoutineDay[] };
@@ -28,11 +29,12 @@ export default function RoutinesScreen() {
   const loadRoutines = async () => {
     try {
       const allRoutines = await listRoutines();
-      const routinesWithDays: RoutineWithDays[] = [];
-      for (const routine of allRoutines) {
-        const days = await getRoutineDays(routine.id);
-        routinesWithDays.push({ ...routine, days });
-      }
+      const routinesWithDays = await Promise.all(
+        allRoutines.map(async (routine) => ({
+          ...routine,
+          days: await getRoutineDays(routine.id),
+        }))
+      );
       setRoutines(routinesWithDays);
     } catch (err) {
       console.error("Failed to load routines:", err);
@@ -45,13 +47,13 @@ export default function RoutinesScreen() {
     const dayCount = routine.days.length;
     switch (routine.name) {
       case "PPL":
-        return `${dayCount}-day split • Push, Pull, Legs cycle`;
+        return `${dayCount}-day split - Push, Pull, Legs cycle`;
       case "Upper/Lower":
-        return `${dayCount}-day split • Alternating upper and lower body`;
+        return `${dayCount}-day split - Alternating upper and lower body`;
       case "Full Body":
-        return `${dayCount}-day split • Train everything each session`;
+        return `${dayCount}-day split - Train everything each session`;
       case "Bro Split":
-        return `${dayCount}-day split • One muscle group per day`;
+        return `${dayCount}-day split - One muscle group per day`;
       default:
         return `${dayCount} days per cycle`;
     }
@@ -117,13 +119,18 @@ export default function RoutinesScreen() {
                   </View>
                 )}
               </View>
-              {isActive && <Text style={styles.activeIndicator}>✓ Active</Text>}
+              {isActive && (
+                <View style={styles.activeIndicator}>
+                  <Ionicons name="checkmark-circle" size={16} color="#007AFF" />
+                  <Text style={styles.activeIndicatorText}>Active</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.routineDescription}>
               {getRoutineDescription(routine)}
             </Text>
             <View style={styles.daysContainer}>
-              {routine.days.map((day, index) => (
+              {routine.days.map((day) => (
                 <View key={day.id} style={styles.dayPill}>
                   <Text style={styles.dayPillText}>{day.name}</Text>
                 </View>
@@ -140,9 +147,12 @@ export default function RoutinesScreen() {
       )}
 
       <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>💡 About Routines</Text>
+        <View style={styles.infoTitleRow}>
+          <Ionicons name="information-circle-outline" size={18} color="#007AFF" />
+          <Text style={styles.infoTitle}>About Routines</Text>
+        </View>
         <Text style={styles.infoText}>
-          Each routine cycles through its days automatically. After completing a workout, 
+          Each routine cycles through its days automatically. After completing a workout,
           the app suggests the next day in the sequence.
         </Text>
         <Text style={styles.infoText}>
@@ -219,6 +229,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   activeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  activeIndicatorText: {
     fontSize: 14,
     color: "#007AFF",
     fontWeight: "600",
@@ -262,11 +277,16 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#007AFF",
   },
+  infoTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
   infoTitle: {
     fontSize: 15,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
