@@ -1,8 +1,9 @@
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
-import { getDefaultRoutine, getRoutineDays, seedExercises, seedPPLRoutine } from "@/lib/repo";
+import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -15,24 +16,33 @@ import {
 } from "react-native";
 
 export default function SettingsScreen() {
-  const { weightJumpLb, setWeightJumpLb } = useSettings();
+  const { weightJumpLb, setWeightJumpLb, activeRoutineId } = useSettings();
   const [localWeightJump, setLocalWeightJump] = useState(String(weightJumpLb));
   const [busy, setBusy] = useState(false);
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [routineDays, setRoutineDays] = useState<RoutineDay[]>([]);
 
-  // Load routine data
-  useEffect(() => {
-    const loadRoutineData = async () => {
-      const defaultRoutine = await getDefaultRoutine();
-      setRoutine(defaultRoutine);
-      if (defaultRoutine) {
-        const days = await getRoutineDays(defaultRoutine.id);
-        setRoutineDays(days);
-      }
-    };
-    loadRoutineData();
-  }, []);
+  // Load routine data when screen focuses (to pick up changes from routines screen)
+  useFocusEffect(
+    useCallback(() => {
+      const loadRoutineData = async () => {
+        if (activeRoutineId) {
+          const activeRoutine = await getRoutineById(activeRoutineId);
+          setRoutine(activeRoutine);
+          if (activeRoutine) {
+            const days = await getRoutineDays(activeRoutine.id);
+            setRoutineDays(days);
+          } else {
+            setRoutineDays([]);
+          }
+        } else {
+          setRoutine(null);
+          setRoutineDays([]);
+        }
+      };
+      loadRoutineData();
+    }, [activeRoutineId])
+  );
 
   const saveWeightJump = () => {
     const num = parseInt(localWeightJump, 10);
@@ -58,14 +68,7 @@ export default function SettingsScreen() {
             try {
               await resetDB();
               await seedExercises();
-              await seedPPLRoutine();
-              // Reload routine data
-              const defaultRoutine = await getDefaultRoutine();
-              setRoutine(defaultRoutine);
-              if (defaultRoutine) {
-                const days = await getRoutineDays(defaultRoutine.id);
-                setRoutineDays(days);
-              }
+              await seedAllRoutines();
               Alert.alert("Done", "Database reset and defaults reseeded.");
             } catch (e) {
               console.error(e);
@@ -156,12 +159,21 @@ export default function SettingsScreen() {
                 </View>
               ))}
             </View>
-            <Text style={styles.routineNote}>
-              Custom routines coming in a future update
-            </Text>
+            <Link href="/routines" asChild>
+              <TouchableOpacity style={styles.changeRoutineButton}>
+                <Text style={styles.changeRoutineButtonText}>Change Routine</Text>
+              </TouchableOpacity>
+            </Link>
           </>
         ) : (
-          <Text style={styles.noRoutineText}>No routine configured</Text>
+          <>
+            <Text style={styles.noRoutineText}>No routine selected</Text>
+            <Link href="/routines" asChild>
+              <TouchableOpacity style={styles.selectRoutineButton}>
+                <Text style={styles.selectRoutineButtonText}>Choose a Routine</Text>
+              </TouchableOpacity>
+            </Link>
+          </>
         )}
       </View>
 
@@ -362,6 +374,32 @@ const styles = StyleSheet.create({
   noRoutineText: {
     color: "#666",
     fontSize: 14,
+    marginBottom: 12,
+  },
+  changeRoutineButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  changeRoutineButtonText: {
+    color: "#007AFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  selectRoutineButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  selectRoutineButtonText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
   },
   // Unit toggle styles
   unitToggleRow: {

@@ -55,6 +55,7 @@ function RootNavigator() {
       <Stack.Screen name="log" options={{ headerShown: true, title: "Workout", headerBackTitle: "Home" }} />
       <Stack.Screen name="exercises" options={{ headerShown: true, title: "Exercises", headerBackTitle: "Home" }} />
       <Stack.Screen name="templates" options={{ headerShown: true, title: "Templates", headerBackTitle: "Home" }} />
+      <Stack.Screen name="routines" options={{ headerShown: true, title: "Choose Routine", headerBackTitle: "Settings" }} />
     </Stack>
   );
 }
