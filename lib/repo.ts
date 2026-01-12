@@ -516,6 +516,60 @@ export async function getLastWorkoutExerciseIds(): Promise<string[]> {
 // ROUTINES (split_migration.md §2, §3)
 // ============================================
 
+// Helper to create a routine with days (used by all seed functions)
+async function createRoutineWithDays(
+  routineName: string,
+  days: { name: string; exerciseNames: string[] }[]
+): Promise<string | null> {
+  const db = await getDB();
+  
+  // Check if routine already exists
+  const existing = await get<{ count: number }>(
+    db,
+    'SELECT COUNT(*) as count FROM routines WHERE name = ? AND is_preset = 1',
+    [routineName]
+  );
+  if ((existing?.count ?? 0) > 0) {
+    console.log(`${routineName} routine already exists, skipping seed`);
+    return null;
+  }
+
+  // Get all exercises for lookups
+  const exercises = await getExercises();
+  const getExerciseId = (name: string): string | undefined =>
+    exercises.find((e) => e.name === name)?.id;
+
+  // Create routine
+  const routineId = uuid();
+  const now = Date.now();
+  await run(
+    db,
+    'INSERT INTO routines (id, name, is_preset, created_at) VALUES (?,?,1,?)',
+    [routineId, routineName, now]
+  );
+
+  // Create days with templates
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
+    const exerciseIds = day.exerciseNames.map(getExerciseId).filter(Boolean) as string[];
+    
+    // Check if template exists, create if not
+    let template = await get<Template>(db, 'SELECT * FROM templates WHERE name = ?', [day.name]);
+    if (!template) {
+      template = await createTemplate(day.name, exerciseIds);
+    }
+
+    await run(
+      db,
+      'INSERT INTO routine_days (id, routine_id, name, order_index, template_id, exercise_ids) VALUES (?,?,?,?,?,?)',
+      [uuid(), routineId, day.name, i, template.id, '[]']
+    );
+  }
+
+  console.log(`Seeded ${routineName} routine with ${days.length} days`);
+  return routineId;
+}
+
 // Seed PPL routine with default templates (idempotent)
 export async function seedPPLRoutine(): Promise<void> {
   const db = await getDB();
@@ -610,6 +664,170 @@ export async function seedPPLRoutine(): Promise<void> {
   } catch (e) {
     console.warn('seedPPLRoutine error:', e);
   }
+}
+
+// Seed Upper/Lower routine (4-day split)
+export async function seedUpperLowerRoutine(): Promise<void> {
+  try {
+    await createRoutineWithDays('Upper/Lower', [
+      {
+        name: 'Upper A',
+        exerciseNames: [
+          'Bench Press',
+          'Barbell Row',
+          'Overhead Press',
+          'Lat Pulldown',
+          'Barbell Curl',
+          'Tricep Pushdown',
+        ],
+      },
+      {
+        name: 'Lower A',
+        exerciseNames: [
+          'Back Squat',
+          'Romanian Deadlift',
+          'Leg Press',
+          'Lying Leg Curl',
+          'Standing Calf Raise',
+        ],
+      },
+      {
+        name: 'Upper B',
+        exerciseNames: [
+          'Incline Dumbbell Press',
+          'Cable Row',
+          'Dumbbell Row',
+          'Lateral Raise',
+          'Hammer Curl',
+          'Skull Crusher',
+        ],
+      },
+      {
+        name: 'Lower B',
+        exerciseNames: [
+          'Deadlift',
+          'Front Squat',
+          'Leg Extension',
+          'Seated Leg Curl',
+          'Hip Thrust',
+          'Seated Calf Raise',
+        ],
+      },
+    ]);
+  } catch (e) {
+    console.warn('seedUpperLowerRoutine error:', e);
+  }
+}
+
+// Seed Full Body routine (3-day split)
+export async function seedFullBodyRoutine(): Promise<void> {
+  try {
+    await createRoutineWithDays('Full Body', [
+      {
+        name: 'Full Body A',
+        exerciseNames: [
+          'Back Squat',
+          'Bench Press',
+          'Barbell Row',
+          'Overhead Press',
+          'Barbell Curl',
+          'Tricep Pushdown',
+        ],
+      },
+      {
+        name: 'Full Body B',
+        exerciseNames: [
+          'Deadlift',
+          'Incline Dumbbell Press',
+          'Lat Pulldown',
+          'Lateral Raise',
+          'Hammer Curl',
+          'Skull Crusher',
+        ],
+      },
+      {
+        name: 'Full Body C',
+        exerciseNames: [
+          'Front Squat',
+          'Dumbbell Fly',
+          'Cable Row',
+          'Face Pull',
+          'Preacher Curl',
+          'Overhead Tricep Extension',
+        ],
+      },
+    ]);
+  } catch (e) {
+    console.warn('seedFullBodyRoutine error:', e);
+  }
+}
+
+// Seed Bro Split routine (5-day split)
+export async function seedBroSplitRoutine(): Promise<void> {
+  try {
+    await createRoutineWithDays('Bro Split', [
+      {
+        name: 'Chest Day',
+        exerciseNames: [
+          'Bench Press',
+          'Incline Dumbbell Press',
+          'Cable Fly',
+          'Dumbbell Fly',
+        ],
+      },
+      {
+        name: 'Back Day',
+        exerciseNames: [
+          'Deadlift',
+          'Pull-Up',
+          'Barbell Row',
+          'Lat Pulldown',
+          'Cable Row',
+        ],
+      },
+      {
+        name: 'Shoulders Day',
+        exerciseNames: [
+          'Overhead Press',
+          'Lateral Raise',
+          'Face Pull',
+          'Rear Delt Fly',
+        ],
+      },
+      {
+        name: 'Arms Day',
+        exerciseNames: [
+          'Barbell Curl',
+          'Tricep Pushdown',
+          'Hammer Curl',
+          'Skull Crusher',
+          'Preacher Curl',
+          'Overhead Tricep Extension',
+        ],
+      },
+      {
+        name: 'Legs Day',
+        exerciseNames: [
+          'Back Squat',
+          'Leg Press',
+          'Romanian Deadlift',
+          'Leg Extension',
+          'Lying Leg Curl',
+          'Standing Calf Raise',
+        ],
+      },
+    ]);
+  } catch (e) {
+    console.warn('seedBroSplitRoutine error:', e);
+  }
+}
+
+// Seed all preset routines (called on app init)
+export async function seedAllRoutines(): Promise<void> {
+  await seedPPLRoutine();
+  await seedUpperLowerRoutine();
+  await seedFullBodyRoutine();
+  await seedBroSplitRoutine();
 }
 
 // Get all routines
