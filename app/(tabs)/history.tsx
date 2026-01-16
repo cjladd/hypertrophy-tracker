@@ -62,7 +62,6 @@ export default function HistoryScreen() {
     workout: Workout,
     allExercises: Exercise[]
   ): Promise<WorkoutWithDetails | null> => {
-    if (!workout.ended_at) return null;
 
     const workoutExercises = await getWorkoutExercises(workout.id);
     let totalSets = 0;
@@ -82,9 +81,15 @@ export default function HistoryScreen() {
       }
     }
 
+    if (!workout.ended_at && totalSets === 0) {
+      await deleteWorkout(workout.id);
+      return null;
+    }
+
+    const effectiveEnd = workout.ended_at ?? Date.now();
     const duration =
-      workout.ended_at && workout.started_at
-        ? Math.round((workout.ended_at - workout.started_at) / 60000)
+      workout.started_at
+        ? Math.round((effectiveEnd - workout.started_at) / 60000)
         : null;
 
     return {

@@ -1,5 +1,5 @@
 // app/(tabs)/progress.tsx
-// Progress Charts screen - Visualize strength progression over time (PRD §3F, §5)
+// Progress Charts screen - Visualize strength progression over time (PRD section 3F, section 5)
 
 import {
     getExerciseProgressData,
@@ -8,6 +8,7 @@ import {
 } from "@/lib/repo";
 import type { Exercise, MuscleGroup } from "@/lib/types";
 import { MUSCLE_GROUPS } from "@/lib/types";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -261,7 +262,7 @@ export default function ProgressScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📊</Text>
+          <Ionicons name="stats-chart-outline" size={64} color="#8E8E93" />
           <Text style={styles.emptyTitle}>No Progress Data Yet</Text>
           <Text style={styles.emptySubtitle}>
             Complete some workouts to start tracking your progress
@@ -284,7 +285,7 @@ export default function ProgressScreen() {
             {selectedExercise?.name ?? "Select an exercise"}
           </Text>
         </View>
-        <Text style={styles.selectorArrow}>›</Text>
+        <Ionicons name="chevron-forward" size={20} color="#8E8E93" style={styles.selectorArrow} />
       </TouchableOpacity>
 
       {/* Chart */}
@@ -361,12 +362,12 @@ export default function ProgressScreen() {
                 <View>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.exerciseMeta}>
-                    {formatMuscleGroup(exercise.muscle_group)} • {exercise.workout_count} workout
+                    {formatMuscleGroup(exercise.muscle_group)} - {exercise.workout_count} workout
                     {exercise.workout_count !== 1 ? "s" : ""}
                   </Text>
                 </View>
                 {selectedExercise?.id === exercise.id && (
-                  <Text style={styles.checkmark}>✓</Text>
+                  <Ionicons name="checkmark" size={18} color="#007AFF" />
                 )}
               </TouchableOpacity>
             ))}

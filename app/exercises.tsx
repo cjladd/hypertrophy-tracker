@@ -326,7 +326,7 @@ export default function ExercisesScreen() {
                   maxLength={2}
                 />
               </View>
-              <Text style={styles.repRangeDash}>–</Text>
+              <Text style={styles.repRangeDash}>-</Text>
               <View style={styles.repRangeField}>
                 <Text style={styles.repRangeLabel}>Max</Text>
                 <TextInput

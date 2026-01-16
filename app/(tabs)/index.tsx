@@ -1,4 +1,4 @@
-import { getActiveWorkoutFromToday, listRecentWorkouts } from "@/lib/repo";
+import { getActiveWorkoutForResume, listRecentWorkouts } from "@/lib/repo";
 import type { Workout } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -14,7 +14,7 @@ export default function Index() {
       setLoading(true);
       const [wk, active] = await Promise.all([
         listRecentWorkouts(10),
-        getActiveWorkoutFromToday(),
+        getActiveWorkoutForResume(),
       ]);
       setWorkouts(wk);
       setActiveWorkout(active);

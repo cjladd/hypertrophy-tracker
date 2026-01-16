@@ -71,7 +71,7 @@ export default function LogWorkoutScreen() {
   const [templatePickerVisible, setTemplatePickerVisible] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
-  // Routine state (split_migration.md §4)
+  // Routine state (split_migration.md section 4)
   const [activeRoutine, setActiveRoutine] = useState<Routine | null>(null);
   const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
 
@@ -86,7 +86,7 @@ export default function LogWorkoutScreen() {
   const [rpe, setRpe] = useState<number | undefined>(undefined);
   const [inlineStatus, setInlineStatus] = useState("");
 
-  // Progression suggestion state (prog_engine.md §11)
+  // Progression suggestion state (prog_engine.md section 11)
   const [currentSuggestion, setCurrentSuggestion] = useState<ProgressionSuggestion | null>(null);
 
   // Edit set modal state
@@ -144,7 +144,13 @@ export default function LogWorkoutScreen() {
       }
 
       setWorkoutId(workout.id);
-      setStartMode('continue');
+      if (workout.routine_day_id) {
+        setStartMode('routine');
+      } else if (workout.template_id) {
+        setStartMode('template');
+      } else {
+        setStartMode('empty');
+      }
       setTemplateId(workout.template_id);
       setRoutineDayId(workout.routine_day_id);
 
@@ -195,7 +201,7 @@ export default function LogWorkoutScreen() {
     }
   };
 
-  // Start workout from routine day (split_migration.md §4)
+  // Start workout from routine day (split_migration.md section 4)
   const handleStartRoutineWorkout = async () => {
     if (!nextRoutineDay) return;
 
@@ -255,7 +261,7 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      // Get progression suggestion for first exercise (prog_engine.md §11)
+      // Get progression suggestion for first exercise (prog_engine.md section 11)
       if (i === 0) {
         const suggestion = await getProgressionSuggestion(exerciseId);
         setCurrentSuggestion(suggestion);
@@ -295,7 +301,7 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      // Get progression suggestion for first exercise (prog_engine.md §11)
+      // Get progression suggestion for first exercise (prog_engine.md section 11)
       if (i === 0) {
         const suggestion = await getProgressionSuggestion(exerciseId);
         setCurrentSuggestion(suggestion);
@@ -330,7 +336,7 @@ export default function LogWorkoutScreen() {
       const orderIndex = workoutExercises.length;
       const workoutExercise = await addWorkoutExercise(workoutId, exercise.id, orderIndex);
 
-      // Get progression suggestion for this exercise (prog_engine.md §11)
+      // Get progression suggestion for this exercise (prog_engine.md section 11)
       const suggestion = await getProgressionSuggestion(exercise.id);
       setCurrentSuggestion(suggestion);
 
@@ -372,7 +378,7 @@ export default function LogWorkoutScreen() {
   const selectWorkoutExercise = async (workoutExercise: WorkoutExerciseWithSets) => {
     setCurrentWorkoutExercise(workoutExercise);
 
-    // Get progression suggestion for this exercise (prog_engine.md §11)
+    // Get progression suggestion for this exercise (prog_engine.md section 11)
     const suggestion = await getProgressionSuggestion(workoutExercise.exercise_id);
     setCurrentSuggestion(suggestion);
 
@@ -590,7 +596,7 @@ export default function LogWorkoutScreen() {
     // Check if we should prompt for template save
     const currentExerciseIds = workoutExercises.map((we) => we.exercise_id);
     
-    // Routine-based workout flow (split_migration.md §5)
+    // Routine-based workout flow (split_migration.md section 5)
     if (startMode === 'routine' && routineDayId) {
       const routineDay = await getRoutineDayById(routineDayId);
       if (routineDay?.template_id) {
@@ -720,7 +726,7 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await finishWorkout(workoutId);
-              // Update progression state for all exercises in this workout (prog_engine.md §10)
+              // Update progression state for all exercises in this workout (prog_engine.md section 10)
               await updateProgressionAfterWorkout(workoutId);
               await promptSaveAsTemplate();
             } catch {
@@ -740,7 +746,7 @@ export default function LogWorkoutScreen() {
           <Text style={styles.startTitle}>Ready to train?</Text>
           <Text style={styles.startSubtitle}>Choose how to start</Text>
 
-          {/* Continue Routine - Primary CTA (split_migration.md §4) */}
+          {/* Continue Routine - Primary CTA (split_migration.md section 4) */}
           {nextRoutineDay && activeRoutine && (
             <TouchableOpacity
               style={[styles.startOptionButton, styles.startOptionRoutine]}
@@ -868,10 +874,16 @@ export default function LogWorkoutScreen() {
                 onPress={goToNextExercise}
                 disabled={workoutExercises.findIndex((we) => we.id === currentWorkoutExercise.id) >= workoutExercises.length - 1}
               >
-                <Text style={[
-                  styles.nextExerciseText,
-                  workoutExercises.findIndex((we) => we.id === currentWorkoutExercise.id) >= workoutExercises.length - 1 && styles.nextExerciseDisabled
-                ]}>→</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color="white"
+                  style={
+                    workoutExercises.findIndex((we) => we.id === currentWorkoutExercise.id) >= workoutExercises.length - 1
+                      ? styles.nextExerciseDisabled
+                      : undefined
+                  }
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -908,7 +920,7 @@ export default function LogWorkoutScreen() {
               </View>
             </View>
 
-            {/* Progression suggestion message (prog_engine.md §11) */}
+            {/* Progression suggestion message (prog_engine.md section 11) */}
             {currentSuggestion && currentWorkoutExercise?.sets.length === 0 && (
               <View style={styles.suggestionContainer}>
                 <Text style={styles.suggestionText}>

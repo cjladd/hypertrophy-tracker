@@ -1,6 +1,6 @@
 // app/templates.tsx
 // Templates screen for CRUD operations on workout templates
-// Per PRD §3E: Create, read, update, delete templates; edit exercise order
+// Per PRD section 3E: Create, read, update, delete templates; edit exercise order
 
 import ExercisePicker from "@/components/ExercisePicker";
 import {
@@ -11,6 +11,7 @@ import {
     updateTemplate,
 } from "@/lib/repo";
 import type { Exercise, Template } from "@/lib/types";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -306,7 +307,7 @@ export default function TemplatesScreen() {
                           onPress={() => handleMoveExercise(index, "up")}
                           disabled={index === 0}
                         >
-                          <Text style={styles.reorderButtonText}>↑</Text>
+                          <Ionicons name="chevron-up" size={14} color="#333" />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[
@@ -317,7 +318,7 @@ export default function TemplatesScreen() {
                           onPress={() => handleMoveExercise(index, "down")}
                           disabled={index === selectedExerciseIds.length - 1}
                         >
-                          <Text style={styles.reorderButtonText}>↓</Text>
+                          <Ionicons name="chevron-down" size={14} color="#333" />
                         </TouchableOpacity>
                       </View>
 
@@ -334,7 +335,7 @@ export default function TemplatesScreen() {
                         style={styles.removeButton}
                         onPress={() => handleRemoveExercise(exerciseId)}
                       >
-                        <Text style={styles.removeButtonText}>✕</Text>
+                        <Ionicons name="close" size={16} color="#FF3B30" />
                       </TouchableOpacity>
                     </View>
                   );

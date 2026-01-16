@@ -282,6 +282,44 @@ export async function deleteTemplate(id: string): Promise<void> {
 // WORKOUTS
 // ============================================
 
+const STALE_WORKOUT_MS = 6 * 60 * 60 * 1000;
+
+async function finalizeStaleWorkouts(maxAgeMs: number): Promise<void> {
+  const db = await getDB();
+  const cutoff = Date.now() - maxAgeMs;
+
+  const staleWorkouts = await all<{
+    id: string;
+    set_count: number;
+    last_set_at: number | null;
+  }>(
+    db,
+    `SELECT w.id,
+            COUNT(s.id) as set_count,
+            MAX(s.created_at) as last_set_at
+     FROM workouts w
+     LEFT JOIN workout_exercises we ON we.workout_id = w.id
+     LEFT JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE w.ended_at IS NULL AND w.started_at <= ?
+     GROUP BY w.id`,
+    [cutoff]
+  );
+
+  for (const workout of staleWorkouts) {
+    if (workout.set_count === 0) {
+      await run(db, 'DELETE FROM workouts WHERE id = ?', [workout.id]);
+      continue;
+    }
+
+    const endedAt = workout.last_set_at ?? Date.now();
+    await run(
+      db,
+      'UPDATE workouts SET ended_at = ? WHERE id = ? AND ended_at IS NULL',
+      [endedAt, workout.id]
+    );
+  }
+}
+
 export async function startWorkout(templateId?: string): Promise<Workout> {
   const db = await getDB();
   const id = uuid();
@@ -325,12 +363,14 @@ export async function getWorkout(id: string): Promise<Workout | null> {
 
 export async function listRecentWorkouts(limit = 20): Promise<Workout[]> {
   const db = await getDB();
+  await finalizeStaleWorkouts(STALE_WORKOUT_MS);
   const lim = Math.max(1, Math.min(1000, Math.floor(limit)));
   return await all<Workout>(
     db,
     `SELECT id, started_at, ended_at, template_id, routine_day_id, notes
      FROM workouts
-     ORDER BY COALESCE(ended_at, started_at) DESC
+     WHERE ended_at IS NOT NULL
+     ORDER BY ended_at DESC
      LIMIT ${lim}`
   );
 }
@@ -348,24 +388,43 @@ export async function getLastWorkout(): Promise<Workout | null> {
 }
 
 /**
- * Get an active (unfinished) workout that was started today.
- * Returns null if no active workout from today exists.
+ * Get an active (unfinished) workout that has at least one logged set.
+ * Auto-deletes empty incomplete workouts to prevent orphan records.
+ * Returns null if no resumable workout exists.
  */
-export async function getActiveWorkoutFromToday(): Promise<Workout | null> {
+export async function getActiveWorkoutForResume(): Promise<Workout | null> {
   const db = await getDB();
-  // Calculate start of today (midnight) in milliseconds
+  await finalizeStaleWorkouts(STALE_WORKOUT_MS);
+
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  
-  return await get<Workout>(
+  const cutoff = Date.now() - STALE_WORKOUT_MS;
+  const minStart = Math.max(startOfToday, cutoff);
+
+  const row = await get<
+    Workout & { set_count: number }
+  >(
     db,
-    `SELECT id, started_at, ended_at, template_id, routine_day_id, notes
-     FROM workouts
-     WHERE ended_at IS NULL AND started_at >= ?
-     ORDER BY started_at DESC
+    `SELECT w.id, w.started_at, w.ended_at, w.template_id, w.routine_day_id, w.notes,
+            COUNT(s.id) as set_count
+     FROM workouts w
+     LEFT JOIN workout_exercises we ON we.workout_id = w.id
+     LEFT JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE w.ended_at IS NULL AND w.started_at >= ?
+     GROUP BY w.id
+     ORDER BY w.started_at DESC
      LIMIT 1`,
-    [startOfToday]
+    [minStart]
   );
+
+  if (!row) return null;
+
+  if (row.set_count === 0) {
+    await deleteWorkout(row.id);
+    return null;
+  }
+
+  return row;
 }
 
 // ============================================
@@ -1082,13 +1141,18 @@ export async function getProgressionSuggestion(exerciseId: string): Promise<Prog
   }
 
   // Get current progression state
-  const state = await getProgressionState(exerciseId);
+  let state = await getProgressionState(exerciseId);
 
   // Get last exposure sets
   const lastSets = await getLastExposureSets(exerciseId);
 
   // Get user settings
   const settings = await getSettings();
+
+  if (lastSets && lastSets.length > 0 && (!state || state.last_weight_lb === null)) {
+    await recomputeProgressionState(exerciseId);
+    state = await getProgressionState(exerciseId);
+  }
 
   return generateSuggestion(exercise, state, lastSets, settings.weightJumpLb);
 }
