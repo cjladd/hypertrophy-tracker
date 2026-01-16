@@ -1,16 +1,16 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useSettings } from "@/context/SettingsContext";
-import { getRoutineDays, listRoutines } from "@/lib/repo";
+import { getRoutineDays, listRoutines, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type RoutineWithDays = Routine & { days: RoutineDay[] };
@@ -29,6 +29,11 @@ export default function Welcome() {
 
   const loadRoutines = async () => {
     try {
+      // Ensure exercises and routines are seeded before loading
+      // This prevents a race condition where welcome screen loads before seeding completes
+      await seedExercises();
+      await seedAllRoutines();
+      
       const allRoutines = await listRoutines();
       const routinesWithDays = await Promise.all(
         allRoutines.map(async (routine) => ({
