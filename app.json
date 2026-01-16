@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "cjladd-app",
-    "slug": "cjladd-app",
+    "name": "Hypertrophy Helper",
+    "slug": "hypertrophy-helper",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

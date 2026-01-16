@@ -14,21 +14,6 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <Ionicons
-                name={focused ? "settings" : "settings-outline"}
-                size={22}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="index"
         options={{
           title: "Home",
@@ -66,6 +51,21 @@ export default function TabLayout() {
             <View style={styles.iconContainer}>
               <Ionicons
                 name={focused ? "time" : "time-outline"}
+                size={22}
+                color={color}
+              />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <Ionicons
+                name={focused ? "settings" : "settings-outline"}
                 size={22}
                 color={color}
               />

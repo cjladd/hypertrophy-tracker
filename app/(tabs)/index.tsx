@@ -63,7 +63,7 @@ export default function Index() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Hypertrophy Tracker</Text>
+      <Text style={styles.title}>Hypertrophy Helper</Text>
       <Text style={styles.subtitle}>Your workout companion</Text>
 
       {/* Quick Actions */}

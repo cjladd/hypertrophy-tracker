@@ -102,7 +102,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
     <View style={styles.stepContainer}>
       <View style={styles.heroSection}>
         <Ionicons name="barbell-outline" size={72} color="#007AFF" style={styles.appIcon} />
-        <Text style={styles.title}>Hypertrophy Tracker</Text>
+        <Text style={styles.title}>Hypertrophy Helper</Text>
         <Text style={styles.subtitle}>Your personal strength coach</Text>
       </View>
       <View style={styles.featureList}>
