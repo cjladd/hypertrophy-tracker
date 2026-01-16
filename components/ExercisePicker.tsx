@@ -1,4 +1,4 @@
-﻿// components/ExercisePicker.tsx
+// components/ExercisePicker.tsx
 import { getExercises } from "@/lib/repo";
 import { MUSCLE_GROUPS, type Exercise, type MuscleGroup } from "@/lib/types";
 import { useEffect, useState } from "react";
@@ -35,6 +35,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
 
   useEffect(() => {
     filterExercises();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises, searchQuery, selectedMuscleGroup]);
 
   const loadExercises = async () => {

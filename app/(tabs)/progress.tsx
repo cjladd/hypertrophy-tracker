@@ -95,6 +95,7 @@ export default function ProgressScreen() {
   useFocusEffect(
     useCallback(() => {
       loadExercises();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 

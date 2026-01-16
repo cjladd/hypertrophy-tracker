@@ -5,7 +5,6 @@
 
 import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
-import { Ionicons } from "@expo/vector-icons";
 import { useSettings } from "@/context/SettingsContext";
 import {
     addSet,
@@ -13,11 +12,11 @@ import {
     createTemplate,
     deleteSet,
     finishWorkout,
-    getRoutineById,
     getExercises,
     getLastWorkoutExerciseIds,
     getNextRoutineDay,
     getProgressionSuggestion,
+    getRoutineById,
     getRoutineDayById,
     getSetsForWorkoutExercise,
     getTemplate,
@@ -33,6 +32,7 @@ import {
     updateWorkoutExerciseOrder
 } from "@/lib/repo";
 import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -212,7 +212,7 @@ export default function LogWorkoutScreen() {
       }
 
       setWorkoutStarted(true);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to start workout");
     }
   };
@@ -233,7 +233,7 @@ export default function LogWorkoutScreen() {
       }
 
       setWorkoutStarted(true);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to start workout");
     }
   };
@@ -352,7 +352,7 @@ export default function LogWorkoutScreen() {
         setReps(String(exercise.rep_range_max));
       }
       setPickerVisible(false);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to add exercise");
     }
   };
@@ -436,7 +436,7 @@ export default function LogWorkoutScreen() {
       // Keep weight, reps, and RPE for next set (same exercise pattern)
       setInlineStatus("Set logged");
       setTimeout(() => setInlineStatus(""), 1500);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to log set");
     }
   };
@@ -503,7 +503,7 @@ export default function LogWorkoutScreen() {
       }
 
       closeEditSet();
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update set");
     }
   };
@@ -538,7 +538,7 @@ export default function LogWorkoutScreen() {
             }
 
             closeEditSet();
-          } catch (error) {
+          } catch {
             Alert.alert("Error", "Failed to delete set");
           }
         },
@@ -577,7 +577,7 @@ export default function LogWorkoutScreen() {
                   setCurrentWorkoutExercise(null);
                 }
               }
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to remove exercise");
             }
           },
@@ -623,7 +623,7 @@ export default function LogWorkoutScreen() {
                   try {
                     await updateTemplate(template.id, { exerciseIds: currentExerciseIds });
                     router.back();
-                  } catch (error) {
+                  } catch {
                     Alert.alert("Error", "Failed to update template");
                   }
                 },
@@ -690,7 +690,7 @@ export default function LogWorkoutScreen() {
         await createTemplate(templateName.trim(), pendingExerciseIds);
         setSaveTemplateModalVisible(false);
         router.back();
-      } catch (error) {
+      } catch {
         Alert.alert("Error", "Failed to save template");
       }
     }
@@ -723,7 +723,7 @@ export default function LogWorkoutScreen() {
               // Update progression state for all exercises in this workout (prog_engine.md §10)
               await updateProgressionAfterWorkout(workoutId);
               await promptSaveAsTemplate();
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to finish workout");
             }
           },

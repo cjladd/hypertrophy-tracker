@@ -114,7 +114,7 @@ export default function TemplatesScreen() {
       }
       closeModal();
       await loadData();
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to save template. Name may already exist.");
     }
   };
@@ -132,7 +132,7 @@ export default function TemplatesScreen() {
             try {
               await deleteTemplate(template.id);
               await loadData();
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to delete template");
             }
           },

@@ -37,6 +37,7 @@ export default function ExercisesScreen() {
 
   useEffect(() => {
     filterExercises();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercises, searchQuery, selectedMuscleGroup]);
 
   const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ");
@@ -126,7 +127,7 @@ export default function ExercisesScreen() {
       setFormRepRangeMax("12");
       setEditingExercise(null);
       loadExercises();
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to save exercise");
     }
   };

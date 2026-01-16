@@ -125,8 +125,8 @@ export default function HistoryScreen() {
       }
 
       setWorkouts(workoutsWithDetails);
-    } catch (error) {
-      console.error("Failed to load workouts:", error);
+    } catch (err) {
+      console.error("Failed to load workouts:", err);
     } finally {
       setLoading(false);
     }
@@ -135,6 +135,7 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       loadWorkouts();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -198,7 +199,7 @@ export default function HistoryScreen() {
               
               closeWorkoutDetail();
               loadWorkouts();
-            } catch (error) {
+            } catch {
               Alert.alert("Error", "Failed to delete workout");
             }
           },
@@ -260,7 +261,7 @@ export default function HistoryScreen() {
 
       closeEditSet();
       await refreshSelectedWorkout();
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update set");
     }
   };
@@ -287,7 +288,7 @@ export default function HistoryScreen() {
 
             closeEditSet();
             await refreshSelectedWorkout();
-          } catch (error) {
+          } catch {
             Alert.alert("Error", "Failed to delete set");
           }
         },
@@ -307,7 +308,7 @@ export default function HistoryScreen() {
         )
       );
       setEditingNotes(false);
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to update notes");
     }
   };

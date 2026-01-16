@@ -157,7 +157,7 @@ export function makeProgressionDecision(
   weightJumpLb: number = PROGRESSION_DEFAULTS.weightJumpLb
 ): ProgressionDecision {
   const { lastWeightLb, stallCount, progressionCeiling, watchNextExposure } = currentState;
-  const { success, conditionalSuccess, topReps, imputedRpe, failureReason } = evaluation;
+  const { success, conditionalSuccess, topReps, failureReason } = evaluation;
   const repRangeMax = exercise.rep_range_max;
   const repRangeMin = exercise.rep_range_min;
 
