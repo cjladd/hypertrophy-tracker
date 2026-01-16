@@ -12,6 +12,7 @@ type Settings = {
 type Ctx = Settings & {
   setWeightJumpLb: (n: number) => void;
   completeOnboarding: () => void;
+  resetOnboarding: () => void; // Dev tool: show welcome screen again
   setActiveRoutineId: (id: string | null) => void;
   isLoading: boolean; // Prevent flash of wrong screen
 };
@@ -50,6 +51,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     isLoading,
     setWeightJumpLb: (n) => setState((s) => ({ ...s, weightJumpLb: Math.max(0, Math.round(n)) })),
     completeOnboarding: () => setState((s) => ({ ...s, hasCompletedOnboarding: true })),
+    resetOnboarding: () => setState((s) => ({ ...s, hasCompletedOnboarding: false })),
     setActiveRoutineId: (id) => setState((s) => ({ ...s, activeRoutineId: id })),
   };
 

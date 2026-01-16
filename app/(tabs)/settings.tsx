@@ -16,7 +16,7 @@ import {
 } from "react-native";
 
 export default function SettingsScreen() {
-  const { weightJumpLb, setWeightJumpLb, activeRoutineId } = useSettings();
+  const { weightJumpLb, setWeightJumpLb, activeRoutineId, resetOnboarding } = useSettings();
   const [localWeightJump, setLocalWeightJump] = useState(String(weightJumpLb));
   const [busy, setBusy] = useState(false);
   const [routine, setRoutine] = useState<Routine | null>(null);
@@ -202,6 +202,17 @@ export default function SettingsScreen() {
           disabled={busy}
         >
           <Text style={styles.secondaryText}>Reset settings to defaults</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={() => {
+            resetOnboarding();
+            Alert.alert("Done", "Onboarding reset. Restart the app to see the welcome screen.");
+          }}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Reset onboarding (show welcome screen)</Text>
         </TouchableOpacity>
       </View>
 
