@@ -1,5 +1,5 @@
 import { useSettings } from "@/context/SettingsContext";
-import { getRoutineDays, listRoutines, seedAllRoutines, seedExercises } from "@/lib/repo";
+import { getRoutineDays, listRoutines } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -29,12 +29,18 @@ export default function Welcome() {
 
   const loadRoutines = async () => {
     try {
-      // Ensure exercises and routines are seeded before loading
-      // This prevents a race condition where welcome screen loads before seeding completes
-      await seedExercises();
-      await seedAllRoutines();
+      // Seeding is handled by _layout.tsx on app init
+      // If routines aren't ready yet, retry after a short delay
+      let allRoutines = await listRoutines();
       
-      const allRoutines = await listRoutines();
+      // Retry up to 3 times if no routines found (seeding may still be in progress)
+      let retries = 0;
+      while (allRoutines.length === 0 && retries < 3) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        allRoutines = await listRoutines();
+        retries++;
+      }
+      
       const routinesWithDays = await Promise.all(
         allRoutines.map(async (routine) => ({
           ...routine,

@@ -1,5 +1,6 @@
 // components/RPEPicker.tsx
 // RPE picker with anchor labels per prog_engine.md §4
+import { COLORS, SHADOWS } from "@/lib/theme";
 import {
     ScrollView,
     StyleSheet,
@@ -24,12 +25,15 @@ const RPE_VALUES = [
   { value: 10, label: "10", description: "Could not do another rep" },
 ];
 
+/**
+ * Get color for RPE value (exported for use in other components)
+ */
 export function getRPEColor(rpe?: number): string {
-  if (!rpe) return "#999";
-  if (rpe <= 7) return "#34C759"; // Green - Moderate
-  if (rpe <= 8) return "#FF9500"; // Orange - Hard
-  if (rpe <= 9) return "#FF3B30"; // Red - Very hard
-  return "#8E44AD"; // Purple - Max
+  if (!rpe) return COLORS.textTertiary;
+  if (rpe <= 7) return COLORS.success;     // Green - Moderate
+  if (rpe <= 8) return COLORS.warning;     // Orange - Hard
+  if (rpe <= 9) return COLORS.destructive; // Red - Very hard
+  return COLORS.purple;                     // Purple - Max
 }
 
 export default function RPEPicker({ value, onChange }: RPEPickerProps) {
@@ -45,8 +49,8 @@ export default function RPEPicker({ value, onChange }: RPEPickerProps) {
           const isSelected = value === item.value;
           const backgroundColor = isSelected
             ? getRPEColor(item.value)
-            : "#f0f0f0";
-          const textColor = isSelected ? "white" : "#666";
+            : COLORS.backgroundDark;
+          const textColor = isSelected ? COLORS.textInverse : COLORS.textSecondary;
 
           return (
             <TouchableOpacity
@@ -64,7 +68,7 @@ export default function RPEPicker({ value, onChange }: RPEPickerProps) {
               <Text
                 style={[
                   styles.rpeButtonDescription,
-                  { color: isSelected ? "rgba(255,255,255,0.8)" : "#999" },
+                  { color: isSelected ? "rgba(255,255,255,0.8)" : COLORS.textTertiary },
                 ]}
               >
                 {item.description}
@@ -84,7 +88,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#666",
+    color: COLORS.textSecondary,
     marginBottom: 10,
   },
   pickerContent: {
@@ -99,11 +103,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rpeButtonActive: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...SHADOWS.active,
   },
   rpeButtonText: {
     fontSize: 18,

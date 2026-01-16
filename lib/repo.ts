@@ -3,8 +3,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { getDB } from './db';
+import {
+    type ExposureData,
+    generateSuggestion,
+    getInitialProgressionState,
+    processExposure,
+} from './progression';
 import { all, get, run } from './sql';
-import type { Exercise, MuscleGroup, ProgressionState, Routine, RoutineDay, Set, Settings, Template, Workout, WorkoutExercise } from './types';
+import type { Exercise, MuscleGroup, ProgressionState, ProgressionSuggestion, Routine, RoutineDay, Set, Settings, Template, Workout, WorkoutExercise } from './types';
 
 function uuid() {
   return (Crypto as any).randomUUID?.() ?? String(Date.now()) + Math.random().toString(16).slice(2);
@@ -14,7 +20,8 @@ function uuid() {
 // SETTINGS (AsyncStorage-based)
 // ============================================
 
-const SETTINGS_KEY = 'ht_settings_v2';
+// Must match SettingsContext KEY for consistency
+const SETTINGS_KEY = 'ht_settings_v3';
 const DEFAULT_SETTINGS: Settings = { weightJumpLb: 5 };
 
 /**
@@ -572,95 +579,43 @@ async function createRoutineWithDays(
 
 // Seed PPL routine with default templates (idempotent)
 export async function seedPPLRoutine(): Promise<void> {
-  const db = await getDB();
   try {
-    // Check if PPL routine already exists
-    const existing = await get<{ count: number }>(
-      db,
-      "SELECT COUNT(*) as count FROM routines WHERE name = 'PPL' AND is_preset = 1"
-    );
-    if ((existing?.count ?? 0) > 0) {
-      console.log('PPL routine already exists, skipping seed');
-      return;
-    }
-
-    // Get exercises by name for template creation
-    const exercises = await getExercises();
-    const getExerciseId = (name: string): string | undefined =>
-      exercises.find((e) => e.name === name)?.id;
-
-    // Define PPL day exercises
-    const pushExercises = [
-      'Bench Press',
-      'Incline Dumbbell Press',
-      'Overhead Press',
-      'Lateral Raise',
-      'Tricep Pushdown',
-      'Skull Crusher',
-    ];
-    const pullExercises = [
-      'Pull-Up',
-      'Lat Pulldown',
-      'Barbell Row',
-      'Cable Row',
-      'Face Pull',
-      'Barbell Curl',
-      'Hammer Curl',
-    ];
-    const legsExercises = [
-      'Back Squat',
-      'Leg Press',
-      'Romanian Deadlift',
-      'Leg Extension',
-      'Lying Leg Curl',
-      'Standing Calf Raise',
-    ];
-
-    // Create templates for each day
-    const pushExerciseIds = pushExercises.map(getExerciseId).filter(Boolean) as string[];
-    const pullExerciseIds = pullExercises.map(getExerciseId).filter(Boolean) as string[];
-    const legsExerciseIds = legsExercises.map(getExerciseId).filter(Boolean) as string[];
-
-    // Check if templates already exist, if not create them
-    let pushTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Push'");
-    let pullTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Pull'");
-    let legsTemplate = await get<Template>(db, "SELECT * FROM templates WHERE name = 'Legs'");
-
-    if (!pushTemplate) {
-      pushTemplate = await createTemplate('Push', pushExerciseIds);
-    }
-    if (!pullTemplate) {
-      pullTemplate = await createTemplate('Pull', pullExerciseIds);
-    }
-    if (!legsTemplate) {
-      legsTemplate = await createTemplate('Legs', legsExerciseIds);
-    }
-
-    // Create PPL routine
-    const routineId = uuid();
-    const now = Date.now();
-    await run(
-      db,
-      'INSERT INTO routines (id, name, is_preset, created_at) VALUES (?,?,1,?)',
-      [routineId, 'PPL', now]
-    );
-
-    // Create routine days linked to templates
-    const days = [
-      { name: 'Push', templateId: pushTemplate.id, orderIndex: 0 },
-      { name: 'Pull', templateId: pullTemplate.id, orderIndex: 1 },
-      { name: 'Legs', templateId: legsTemplate.id, orderIndex: 2 },
-    ];
-
-    for (const day of days) {
-      await run(
-        db,
-        'INSERT INTO routine_days (id, routine_id, name, order_index, template_id, exercise_ids) VALUES (?,?,?,?,?,?)',
-        [uuid(), routineId, day.name, day.orderIndex, day.templateId, '[]']
-      );
-    }
-
-    console.log('Seeded PPL routine with Push, Pull, Legs days');
+    await createRoutineWithDays('PPL', [
+      {
+        name: 'Push',
+        exerciseNames: [
+          'Bench Press',
+          'Incline Dumbbell Press',
+          'Overhead Press',
+          'Lateral Raise',
+          'Tricep Pushdown',
+          'Skull Crusher',
+        ],
+      },
+      {
+        name: 'Pull',
+        exerciseNames: [
+          'Pull-Up',
+          'Lat Pulldown',
+          'Barbell Row',
+          'Cable Row',
+          'Face Pull',
+          'Barbell Curl',
+          'Hammer Curl',
+        ],
+      },
+      {
+        name: 'Legs',
+        exerciseNames: [
+          'Back Squat',
+          'Leg Press',
+          'Romanian Deadlift',
+          'Leg Extension',
+          'Lying Leg Curl',
+          'Standing Calf Raise',
+        ],
+      },
+    ]);
   } catch (e) {
     console.warn('seedPPLRoutine error:', e);
   }
@@ -946,14 +901,6 @@ export async function updateRoutineDayTemplate(routineDayId: string, templateId:
 // ============================================
 // PROGRESSION STATE (prog_engine.md)
 // ============================================
-
-import {
-    type ExposureData,
-    generateSuggestion,
-    getInitialProgressionState,
-    processExposure,
-} from './progression';
-import type { ProgressionSuggestion } from './types';
 
 /**
  * Get progression state for an exercise
