@@ -7,10 +7,10 @@ import {
     createTemplate,
     deleteTemplate,
     getExercises,
-    getTemplates,
+    getTemplatesGroupedByRoutine,
     updateTemplate,
 } from "@/lib/repo";
-import type { Exercise, Template } from "@/lib/types";
+import type { Exercise, RoutineWithTemplates, Template } from "@/lib/types";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -28,7 +28,8 @@ import {
 type ModalMode = "create" | "edit" | null;
 
 export default function TemplatesScreen() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [routineTemplates, setRoutineTemplates] = useState<RoutineWithTemplates[]>([]);
+  const [standaloneTemplates, setStandaloneTemplates] = useState<Template[]>([]);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +46,12 @@ export default function TemplatesScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [templatesData, exercisesData] = await Promise.all([
-        getTemplates(),
+      const [groupedData, exercisesData] = await Promise.all([
+        getTemplatesGroupedByRoutine(),
         getExercises(),
       ]);
-      setTemplates(templatesData);
+      setRoutineTemplates(groupedData.routineTemplates);
+      setStandaloneTemplates(groupedData.standaloneTemplates);
       setAllExercises(exercisesData);
     } catch (error) {
       console.error("Failed to load templates:", error);
@@ -173,12 +175,60 @@ export default function TemplatesScreen() {
     );
   }
 
+  const hasTemplates = routineTemplates.some((r) => r.days.some((d) => d.template)) || standaloneTemplates.length > 0;
+
+  const renderTemplateCard = (template: Template) => {
+    const exerciseIds: string[] = JSON.parse(template.exercise_ids);
+    const exercises = exerciseIds
+      .map((id) => getExerciseById(id))
+      .filter(Boolean) as Exercise[];
+
+    return (
+      <View key={template.id} style={styles.templateCard}>
+        <View style={styles.templateHeader}>
+          <Text style={styles.templateName}>{template.name}</Text>
+          <Text style={styles.exerciseCount}>
+            {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
+          </Text>
+        </View>
+
+        <View style={styles.exerciseList}>
+          {exercises.slice(0, 5).map((exercise, index) => (
+            <Text key={exercise.id} style={styles.exerciseItem}>
+              {index + 1}. {exercise.name}
+            </Text>
+          ))}
+          {exercises.length > 5 && (
+            <Text style={styles.moreExercises}>
+              +{exercises.length - 5} more
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.templateActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => openEditModal(template)}
+          >
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDelete(template)}
+          >
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: "Templates" }} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {templates.length === 0 ? (
+        {!hasTemplates ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Templates Yet</Text>
             <Text style={styles.emptySubtitle}>
@@ -187,51 +237,31 @@ export default function TemplatesScreen() {
             </Text>
           </View>
         ) : (
-          templates.map((template) => {
-            const exerciseIds: string[] = JSON.parse(template.exercise_ids);
-            const exercises = exerciseIds
-              .map((id) => getExerciseById(id))
-              .filter(Boolean) as Exercise[];
+          <>
+            {/* Routine-linked templates */}
+            {routineTemplates.map((routineGroup) => {
+              const daysWithTemplates = routineGroup.days.filter((d) => d.template);
+              if (daysWithTemplates.length === 0) return null;
 
-            return (
-              <View key={template.id} style={styles.templateCard}>
-                <View style={styles.templateHeader}>
-                  <Text style={styles.templateName}>{template.name}</Text>
-                  <Text style={styles.exerciseCount}>
-                    {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
-                  </Text>
+              return (
+                <View key={routineGroup.routine.id} style={styles.routineSection}>
+                  <Text style={styles.routineSectionTitle}>{routineGroup.routine.name}</Text>
+                  {daysWithTemplates.map((day) => {
+                    if (!day.template) return null;
+                    return renderTemplateCard(day.template);
+                  })}
                 </View>
+              );
+            })}
 
-                <View style={styles.exerciseList}>
-                  {exercises.slice(0, 5).map((exercise, index) => (
-                    <Text key={exercise.id} style={styles.exerciseItem}>
-                      {index + 1}. {exercise.name}
-                    </Text>
-                  ))}
-                  {exercises.length > 5 && (
-                    <Text style={styles.moreExercises}>
-                      +{exercises.length - 5} more
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.templateActions}>
-                  <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => openEditModal(template)}
-                  >
-                    <Text style={styles.editButtonText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(template)}
-                  >
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+            {/* Standalone templates */}
+            {standaloneTemplates.length > 0 && (
+              <View style={styles.routineSection}>
+                <Text style={styles.routineSectionTitle}>Other Templates</Text>
+                {standaloneTemplates.map((template) => renderTemplateCard(template))}
               </View>
-            );
-          })
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -393,6 +423,18 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+  routineSection: {
+    marginBottom: 24,
+  },
+  routineSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   templateCard: {
     backgroundColor: "#fff",

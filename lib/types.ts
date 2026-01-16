@@ -151,3 +151,15 @@ export interface Settings {
   weightJumpLb: number; // default 5
 }
 
+// Template grouped by routine for UI display
+export interface RoutineWithTemplates {
+  routine: Routine;
+  days: Array<RoutineDay & { template: Template | null }>;
+}
+
+// Standalone templates (not linked to any routine day)
+export interface TemplatesGroupedByRoutine {
+  routineTemplates: RoutineWithTemplates[];
+  standaloneTemplates: Template[];
+}
+

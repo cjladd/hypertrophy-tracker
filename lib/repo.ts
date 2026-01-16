@@ -10,7 +10,21 @@ import {
     processExposure,
 } from './progression';
 import { all, get, run } from './sql';
-import type { Exercise, MuscleGroup, ProgressionState, ProgressionSuggestion, Routine, RoutineDay, Set, Settings, Template, Workout, WorkoutExercise } from './types';
+import type {
+  Exercise,
+  MuscleGroup,
+  ProgressionState,
+  ProgressionSuggestion,
+  Routine,
+  RoutineDay,
+  RoutineWithTemplates,
+  Set,
+  Settings,
+  Template,
+  TemplatesGroupedByRoutine,
+  Workout,
+  WorkoutExercise,
+} from './types';
 
 function uuid() {
   return (Crypto as any).randomUUID?.() ?? String(Date.now()) + Math.random().toString(16).slice(2);
@@ -955,6 +969,44 @@ export async function startWorkoutFromRoutineDay(routineDayId: string): Promise<
 export async function updateRoutineDayTemplate(routineDayId: string, templateId: string): Promise<void> {
   const db = await getDB();
   await run(db, 'UPDATE routine_days SET template_id = ? WHERE id = ?', [templateId, routineDayId]);
+}
+
+// Get templates grouped by routine for organized display
+export async function getTemplatesGroupedByRoutine(): Promise<TemplatesGroupedByRoutine> {
+  const db = await getDB();
+
+  // Get all routines
+  const routines = await listRoutines();
+
+  // Get all templates
+  const allTemplates = await getTemplates();
+
+  // Track which template IDs are linked to routine days
+  const linkedTemplateIds = new Set<string>();
+
+  // Build routine templates
+  const routineTemplates: RoutineWithTemplates[] = [];
+
+  for (const routine of routines) {
+    const days = await getRoutineDays(routine.id);
+    const daysWithTemplates = days.map((day) => {
+      const template = day.template_id ? allTemplates.find((t) => t.id === day.template_id) ?? null : null;
+      if (day.template_id) {
+        linkedTemplateIds.add(day.template_id);
+      }
+      return { ...day, template };
+    });
+
+    routineTemplates.push({
+      routine,
+      days: daysWithTemplates,
+    });
+  }
+
+  // Standalone templates are those not linked to any routine day
+  const standaloneTemplates = allTemplates.filter((t) => !linkedTemplateIds.has(t.id));
+
+  return { routineTemplates, standaloneTemplates };
 }
 
 // ============================================

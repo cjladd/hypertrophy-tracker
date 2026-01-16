@@ -18,9 +18,10 @@ import {
     getProgressionSuggestion,
     getRoutineById,
     getRoutineDayById,
+    getRoutineDays,
     getSetsForWorkoutExercise,
     getTemplate,
-    getTemplates,
+    getTemplatesGroupedByRoutine,
     getWorkout,
     getWorkoutExercises,
     removeWorkoutExercise,
@@ -31,7 +32,7 @@ import {
     updateTemplate,
     updateWorkoutExerciseOrder
 } from "@/lib/repo";
-import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, Set, Template, WorkoutExercise } from "@/lib/types";
+import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, RoutineWithTemplates, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -66,7 +67,8 @@ export default function LogWorkoutScreen() {
   const [pickerVisible, setPickerVisible] = useState(false);
 
   // Start screen state
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [routineTemplates, setRoutineTemplates] = useState<RoutineWithTemplates[]>([]);
+  const [standaloneTemplates, setStandaloneTemplates] = useState<Template[]>([]);
   const [hasLastWorkout, setHasLastWorkout] = useState(false);
   const [templatePickerVisible, setTemplatePickerVisible] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
@@ -74,6 +76,8 @@ export default function LogWorkoutScreen() {
   // Routine state (split_migration.md section 4)
   const [activeRoutine, setActiveRoutine] = useState<Routine | null>(null);
   const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
+  const [routineDays, setRoutineDays] = useState<RoutineDay[]>([]);
+  const [routineDayPickerVisible, setRoutineDayPickerVisible] = useState(false);
 
   // Template save modal state
   const [saveTemplateModalVisible, setSaveTemplateModalVisible] = useState(false);
@@ -101,26 +105,31 @@ export default function LogWorkoutScreen() {
   useEffect(() => {
     const loadStartData = async () => {
       try {
-        const [templatesData, lastExerciseIds, exercisesData] = await Promise.all([
-          getTemplates(),
+        const [groupedTemplates, lastExerciseIds, exercisesData] = await Promise.all([
+          getTemplatesGroupedByRoutine(),
           getLastWorkoutExerciseIds(),
           getExercises(),
         ]);
-        setTemplates(templatesData);
+        setRoutineTemplates(groupedTemplates.routineTemplates);
+        setStandaloneTemplates(groupedTemplates.standaloneTemplates);
         setHasLastWorkout(lastExerciseIds.length > 0);
         setAllExercises(exercisesData);
         if (activeRoutineId) {
           const routine = await getRoutineById(activeRoutineId);
           setActiveRoutine(routine);
           if (routine) {
+            const days = await getRoutineDays(routine.id);
+            setRoutineDays(days);
             const nextDay = await getNextRoutineDay(routine.id);
             setNextRoutineDay(nextDay);
           } else {
             setNextRoutineDay(null);
+            setRoutineDays([]);
           }
         } else {
           setActiveRoutine(null);
           setNextRoutineDay(null);
+          setRoutineDays([]);
         }
 
         // If continueWorkoutId is passed, resume that workout
@@ -223,6 +232,25 @@ export default function LogWorkoutScreen() {
     }
   };
 
+  const handleStartSpecificRoutineDay = async (day: RoutineDay) => {
+    try {
+      const workout = await startWorkoutFromRoutineDay(day.id);
+      setWorkoutId(workout.id);
+      setStartMode('routine');
+      setRoutineDayId(day.id);
+      setTemplateId(workout.template_id);
+
+      // Populate exercises from routine day's template
+      if (workout.template_id) {
+        await populateFromTemplate(workout.id, workout.template_id);
+      }
+
+      setWorkoutStarted(true);
+    } catch {
+      Alert.alert("Error", "Failed to start workout");
+    }
+  };
+
   const handleStartWorkout = async (mode: StartMode, selectedTemplateId?: string) => {
     try {
       const workout = await startWorkout(selectedTemplateId);
@@ -282,7 +310,20 @@ export default function LogWorkoutScreen() {
   };
 
   const populateFromTemplate = async (workoutId: string, templateId: string) => {
-    const template = templates.find((t) => t.id === templateId);
+    // Find template in routine templates or standalone templates
+    let template: Template | null = null;
+    for (const routineGroup of routineTemplates) {
+      for (const day of routineGroup.days) {
+        if (day.template?.id === templateId) {
+          template = day.template;
+          break;
+        }
+      }
+      if (template) break;
+    }
+    if (!template) {
+      template = standaloneTemplates.find((t) => t.id === templateId) ?? null;
+    }
     if (!template) return;
 
     const exerciseIds: string[] = JSON.parse(template.exercise_ids);
@@ -654,7 +695,20 @@ export default function LogWorkoutScreen() {
     
     // Template-based workout flow (existing behavior)
     if (startMode === 'template' && templateId) {
-      const template = templates.find((t) => t.id === templateId);
+      // Find template in routine templates or standalone templates
+      let template: Template | null = null;
+      for (const routineGroup of routineTemplates) {
+        for (const day of routineGroup.days) {
+          if (day.template?.id === templateId) {
+            template = day.template;
+            break;
+          }
+        }
+        if (template) break;
+      }
+      if (!template) {
+        template = standaloneTemplates.find((t) => t.id === templateId) ?? null;
+      }
       if (template) {
         const templateExerciseIds: string[] = JSON.parse(template.exercise_ids);
         const isSame = 
@@ -762,6 +816,21 @@ export default function LogWorkoutScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Override Routine Day */}
+          {activeRoutine && routineDays.length > 0 && (
+            <TouchableOpacity
+              style={[styles.startOptionButton, styles.startOptionRoutineOverride]}
+              onPress={() => setRoutineDayPickerVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="swap-horizontal-outline" size={24} color="#007AFF" style={styles.startOptionIcon} />
+              <View style={styles.startOptionContent}>
+                <Text style={styles.startOptionTitleOverride}>Choose routine day</Text>
+                <Text style={styles.startOptionDescOverride}>Overrides today and advances the cycle</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* Repeat Last Workout */}
           {hasLastWorkout && (
             <TouchableOpacity
@@ -777,7 +846,7 @@ export default function LogWorkoutScreen() {
           )}
 
           {/* Choose Template */}
-          {templates.length > 0 && (
+          {(routineTemplates.some((r) => r.days.some((d) => d.template)) || standaloneTemplates.length > 0) && (
             <TouchableOpacity
               style={[styles.startOptionButton, styles.startOptionSecondary]}
               onPress={() => setTemplatePickerVisible(true)}
@@ -785,7 +854,7 @@ export default function LogWorkoutScreen() {
               <Ionicons name="list-outline" size={24} color="#fff" style={styles.startOptionIcon} />
               <View style={styles.startOptionContent}>
                 <Text style={styles.startOptionTitle}>Choose Template</Text>
-                <Text style={styles.startOptionDesc}>{templates.length} saved template{templates.length !== 1 ? 's' : ''}</Text>
+                <Text style={styles.startOptionDesc}>Start from a saved template</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -801,7 +870,39 @@ export default function LogWorkoutScreen() {
               <Text style={styles.startOptionDesc}>Add exercises as you go</Text>
             </View>
           </TouchableOpacity>
-        </ScrollView>
+         </ScrollView>
+
+        {/* Routine Day Picker Modal */}
+        <Modal
+          visible={routineDayPickerVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setRoutineDayPickerVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Choose Routine Day</Text>
+              <TouchableOpacity onPress={() => setRoutineDayPickerVisible(false)}>
+                <Text style={styles.modalClose}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalContent}>
+              {routineDays.map((day) => (
+                <TouchableOpacity
+                  key={day.id}
+                  style={styles.templateItem}
+                  onPress={async () => {
+                    setRoutineDayPickerVisible(false);
+                    await handleStartSpecificRoutineDay(day);
+                  }}
+                >
+                  <Text style={styles.templateName}>{day.name}</Text>
+                  <Text style={styles.templateExercises}>Starts {day.name} and sets the next day automatically</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </Modal>
 
         {/* Template Picker Modal */}
         <Modal
@@ -818,30 +919,73 @@ export default function LogWorkoutScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalContent}>
-              {templates.map((template) => {
-                const exerciseIds: string[] = JSON.parse(template.exercise_ids);
-                const exerciseNames = exerciseIds
-                  .map((id) => allExercises.find((e) => e.id === id)?.name ?? "Unknown")
-                  .slice(0, 3);
-                const moreCount = exerciseIds.length - 3;
+              {/* Routine-linked templates */}
+              {routineTemplates.map((routineGroup) => {
+                const daysWithTemplates = routineGroup.days.filter((d) => d.template);
+                if (daysWithTemplates.length === 0) return null;
 
                 return (
-                  <TouchableOpacity
-                    key={template.id}
-                    style={styles.templateItem}
-                    onPress={() => {
-                      setTemplatePickerVisible(false);
-                      handleStartWorkout('template', template.id);
-                    }}
-                  >
-                    <Text style={styles.templateName}>{template.name}</Text>
-                    <Text style={styles.templateExercises}>
-                      {exerciseNames.join(", ")}
-                      {moreCount > 0 ? ` +${moreCount} more` : ""}
-                    </Text>
-                  </TouchableOpacity>
+                  <View key={routineGroup.routine.id} style={styles.templateSection}>
+                    <Text style={styles.templateSectionTitle}>{routineGroup.routine.name}</Text>
+                    {daysWithTemplates.map((day) => {
+                      if (!day.template) return null;
+                      const exerciseIds: string[] = JSON.parse(day.template.exercise_ids);
+                      const exerciseNames = exerciseIds
+                        .map((id) => allExercises.find((e) => e.id === id)?.name ?? "Unknown")
+                        .slice(0, 3);
+                      const moreCount = exerciseIds.length - 3;
+
+                      return (
+                        <TouchableOpacity
+                          key={`${routineGroup.routine.id}:${day.id}`}
+                          style={styles.templateItem}
+                          onPress={() => {
+                            setTemplatePickerVisible(false);
+                            handleStartWorkout('template', day.template!.id);
+                          }}
+                        >
+                          <Text style={styles.templateName}>{day.template.name}</Text>
+                          <Text style={styles.templateExercises}>
+                            {exerciseNames.join(", ")}
+                            {moreCount > 0 ? ` +${moreCount} more` : ""}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 );
               })}
+
+              {/* Standalone templates */}
+              {standaloneTemplates.length > 0 && (
+                <View style={styles.templateSection}>
+                  <Text style={styles.templateSectionTitle}>Other Templates</Text>
+                  {standaloneTemplates.map((template) => {
+                    const exerciseIds: string[] = JSON.parse(template.exercise_ids);
+                    const exerciseNames = exerciseIds
+                      .map((id) => allExercises.find((e) => e.id === id)?.name ?? "Unknown")
+                      .slice(0, 3);
+                    const moreCount = exerciseIds.length - 3;
+
+                    return (
+                      <TouchableOpacity
+                        key={template.id}
+                        style={styles.templateItem}
+                        onPress={() => {
+                          setTemplatePickerVisible(false);
+                          handleStartWorkout('template', template.id);
+                        }}
+                      >
+                        <Text style={styles.templateName}>{template.name}</Text>
+                        <Text style={styles.templateExercises}>
+                          {exerciseNames.join(", ")}
+                          {moreCount > 0 ? ` +${moreCount} more` : ""}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </ScrollView>
           </View>
         </Modal>
@@ -1162,6 +1306,9 @@ const styles = StyleSheet.create({
   startOptionRoutine: {
     backgroundColor: "#FF9500",
   },
+  startOptionRoutineOverride: {
+    backgroundColor: "#f0f0f0",
+  },
   startOptionIcon: {
     marginRight: 16,
   },
@@ -1174,9 +1321,19 @@ const styles = StyleSheet.create({
     color: "white",
     marginBottom: 2,
   },
+  startOptionTitleOverride: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#007AFF",
+    marginBottom: 2,
+  },
   startOptionDesc: {
     fontSize: 13,
     color: "rgba(255,255,255,0.8)",
+  },
+  startOptionDescOverride: {
+    fontSize: 13,
+    color: "#666",
   },
   modalContainer: {
     flex: 1,
@@ -1203,6 +1360,18 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     padding: 16,
+  },
+  templateSection: {
+    marginBottom: 20,
+  },
+  templateSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
   templateItem: {
     backgroundColor: "white",
