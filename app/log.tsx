@@ -1134,21 +1134,15 @@ export default function LogWorkoutScreen() {
             <Text style={styles.sectionTitle}>
               Exercises ({workoutExercises.length}) / Sets ({getTotalSets()})
             </Text>
-            <Text style={styles.dragHint}>Hold and drag ☰ to reorder exercises</Text>
+            <Text style={styles.dragHint}>Tap arrows to reorder exercises</Text>
             <View style={styles.exercisesContainer}>
               {workoutExercises.map((we, index) => (
                 <View key={we.id} style={styles.exerciseWrapper}>
                   <View style={styles.exerciseCard}>
                     <View style={styles.exerciseCardHeader}>
-                      <TouchableOpacity
-                        style={styles.dragHandleButton}
-                        activeOpacity={0.8}
-                        onLongPress={() => {
-                          // Visual feedback that drag is available
-                        }}
-                      >
-                        <Ionicons name="menu" size={24} color="#999" />
-                      </TouchableOpacity>
+                      <View style={styles.orderBadge}>
+                        <Text style={styles.orderBadgeText}>{index + 1}</Text>
+                      </View>
                       
                       <TouchableOpacity
                         style={styles.exerciseNameButton}
@@ -1170,7 +1164,7 @@ export default function LogWorkoutScreen() {
                         >
                           <Ionicons 
                             name="chevron-up" 
-                            size={20} 
+                            size={22} 
                             color={index === 0 ? "#ccc" : "#007AFF"} 
                           />
                         </TouchableOpacity>
@@ -1819,31 +1813,40 @@ const styles = StyleSheet.create({
   exerciseCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     backgroundColor: "#f9f9f9",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
   },
-  dragHandleButton: {
-    padding: 8,
-    justifyContent: "center",
+  orderBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#007AFF",
     alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  orderBadgeText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   exerciseNameButton: {
     flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   exerciseActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
   moveButton: {
-    padding: 4,
+    padding: 6,
     justifyContent: "center",
     alignItems: "center",
   },

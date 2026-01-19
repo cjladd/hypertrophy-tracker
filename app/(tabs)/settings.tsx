@@ -7,11 +7,13 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from "react-native";
 

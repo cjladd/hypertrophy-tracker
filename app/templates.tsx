@@ -326,20 +326,20 @@ export default function TemplatesScreen() {
                 </Text>
               ) : (
                 <>
-                  <Text style={styles.dragHint}>Use arrows to reorder exercises</Text>
+                  <Text style={styles.dragHint}>Tap arrows to reorder exercises</Text>
                   {selectedExerciseIds.map((exerciseId, index) => {
                     const exercise = getExerciseById(exerciseId);
                     if (!exercise) return null;
 
                     return (
                       <View key={exerciseId} style={styles.selectedExerciseRow}>
-                        <View style={styles.dragIndicator}>
-                          <Ionicons name="menu" size={20} color="#999" />
+                        <View style={styles.orderNumber}>
+                          <Text style={styles.orderNumberText}>{index + 1}</Text>
                         </View>
                         
                         <View style={styles.selectedExerciseInfo}>
                           <Text style={styles.selectedExerciseName}>
-                            {index + 1}. {exercise.name}
+                            {exercise.name}
                           </Text>
                           <Text style={styles.selectedExerciseMuscle}>
                             {exercise.muscle_group.replace("_", " ")}
@@ -357,7 +357,7 @@ export default function TemplatesScreen() {
                           >
                             <Ionicons 
                               name="chevron-up" 
-                              size={18} 
+                              size={22} 
                               color={index === 0 ? "#ccc" : "#007AFF"} 
                             />
                           </TouchableOpacity>
@@ -372,7 +372,7 @@ export default function TemplatesScreen() {
                           >
                             <Ionicons 
                               name="chevron-down" 
-                              size={18} 
+                              size={22} 
                               color={index === selectedExerciseIds.length - 1 ? "#ccc" : "#007AFF"} 
                             />
                           </TouchableOpacity>
@@ -685,9 +685,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-  dragIndicator: {
-    padding: 4,
-    marginRight: 8,
+  orderNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  orderNumberText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   exerciseActionButtons: {
     flexDirection: "row",
