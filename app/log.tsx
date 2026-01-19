@@ -38,12 +38,14 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     Alert,
+    Keyboard,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from "react-native";
 
@@ -633,6 +635,42 @@ export default function LogWorkoutScreen() {
     );
   };
 
+  const handleReorderExercises = async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+
+    try {
+      // Reorder the array
+      const reordered = [...workoutExercises];
+      const [movedItem] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, movedItem);
+
+      // Update order_index for all items
+      const updatedItems = reordered.map((item, index) => ({
+        ...item,
+        order_index: index,
+      }));
+
+      // Persist to database
+      await Promise.all(
+        updatedItems.map((item) => updateWorkoutExerciseOrder(item.id, item.order_index))
+      );
+
+      // Update local state
+      setWorkoutExercises(updatedItems);
+
+      // Update current workout exercise if it was moved
+      if (currentWorkoutExercise) {
+        const updatedCurrent = updatedItems.find((we) => we.id === currentWorkoutExercise.id);
+        if (updatedCurrent) {
+          setCurrentWorkoutExercise(updatedCurrent);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to reorder exercises:", error);
+      Alert.alert("Error", "Failed to reorder exercises");
+    }
+  };
+
   const promptSaveAsTemplate = async () => {
     // Check if we should prompt for template save
     const currentExerciseIds = workoutExercises.map((we) => we.exercise_id);
@@ -994,17 +1032,18 @@ export default function LogWorkoutScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: "Log Workout" }} />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: "Log Workout" }} />
 
-      <ScrollView style={styles.content}>
-        {/* Exercise Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Exercise</Text>
-          <View style={styles.exerciseRow}>
-            <TouchableOpacity
-              style={styles.exerciseButton}
-              onPress={() => setPickerVisible(true)}
+        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+          {/* Exercise Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Exercise</Text>
+            <View style={styles.exerciseRow}>
+              <TouchableOpacity
+                style={styles.exerciseButton}
+                onPress={() => setPickerVisible(true)}
             >
               <Text style={styles.exerciseButtonText}>
                 {currentWorkoutExercise
@@ -1095,50 +1134,95 @@ export default function LogWorkoutScreen() {
             <Text style={styles.sectionTitle}>
               Exercises ({workoutExercises.length}) / Sets ({getTotalSets()})
             </Text>
-            {workoutExercises.map((we) => (
-              <View key={we.id} style={styles.exerciseGroup}>
-                <View style={styles.exerciseHeaderRow}>
-                  <TouchableOpacity
-                    style={styles.exerciseHeader}
-                    onPress={() => void selectWorkoutExercise(we)}
-                  >
-                    <Text style={styles.exerciseGroupName}>{we.exercise.name}</Text>
-                    <Text style={styles.exerciseSetCount}>
-                      {we.sets.length} set{we.sets.length !== 1 ? "s" : ""}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeExerciseButton}
-                    onPress={() => handleRemoveExercise(we.id)}
-                  >
-                    <Text style={styles.removeExerciseText}>X</Text>
-                  </TouchableOpacity>
-                </View>
-                {we.sets.map((set) => {
-                  const rpeColor = getRPEColor(set.rpe ?? undefined);
-                  return (
-                    <TouchableOpacity
-                      key={set.id}
-                      style={[styles.setItem, { borderLeftColor: rpeColor }]}
-                      onPress={() => openEditSet(set, we)}
-                    >
-                      <Text style={styles.setText}>
-                        Set {set.set_index}:{" "}
-                        <Text style={styles.setTextBold}>
-                          {set.reps} x {set.weight_lb} lb
+            <Text style={styles.dragHint}>Hold and drag ☰ to reorder exercises</Text>
+            <View style={styles.exercisesContainer}>
+              {workoutExercises.map((we, index) => (
+                <View key={we.id} style={styles.exerciseWrapper}>
+                  <View style={styles.exerciseCard}>
+                    <View style={styles.exerciseCardHeader}>
+                      <TouchableOpacity
+                        style={styles.dragHandleButton}
+                        activeOpacity={0.8}
+                        onLongPress={() => {
+                          // Visual feedback that drag is available
+                        }}
+                      >
+                        <Ionicons name="menu" size={24} color="#999" />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={styles.exerciseNameButton}
+                        onPress={() => void selectWorkoutExercise(we)}
+                      >
+                        <Text style={styles.exerciseGroupName}>{we.exercise.name}</Text>
+                        <Text style={styles.exerciseSetCount}>
+                          {we.sets.length} set{we.sets.length !== 1 ? "s" : ""}
                         </Text>
-                      </Text>
-                      {set.rpe && (
-                        <View style={[styles.rpeBadge, { backgroundColor: rpeColor }]}>
-                          <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
-                        </View>
-                      )}
-                      <Text style={styles.editHint}>Edit</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ))}
+                      </TouchableOpacity>
+                      
+                      <View style={styles.exerciseActions}>
+                        <TouchableOpacity
+                          style={styles.moveButton}
+                          onPress={() => {
+                            if (index > 0) handleReorderExercises(index, index - 1);
+                          }}
+                          disabled={index === 0}
+                        >
+                          <Ionicons 
+                            name="chevron-up" 
+                            size={20} 
+                            color={index === 0 ? "#ccc" : "#007AFF"} 
+                          />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.moveButton}
+                          onPress={() => {
+                            if (index < workoutExercises.length - 1) handleReorderExercises(index, index + 1);
+                          }}
+                          disabled={index === workoutExercises.length - 1}
+                        >
+                          <Ionicons 
+                            name="chevron-down" 
+                            size={20} 
+                            color={index === workoutExercises.length - 1 ? "#ccc" : "#007AFF"} 
+                          />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.removeExerciseButton}
+                          onPress={() => handleRemoveExercise(we.id)}
+                        >
+                          <Text style={styles.removeExerciseText}>×</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    {we.sets.map((set) => {
+                      const rpeColor = getRPEColor(set.rpe ?? undefined);
+                      return (
+                        <TouchableOpacity
+                          key={set.id}
+                          style={[styles.setItem, { borderLeftColor: rpeColor }]}
+                          onPress={() => openEditSet(set, we)}
+                        >
+                          <Text style={styles.setText}>
+                            Set {set.set_index}:{" "}
+                            <Text style={styles.setTextBold}>
+                              {set.reps} x {set.weight_lb} lb
+                            </Text>
+                          </Text>
+                          {set.rpe && (
+                            <View style={[styles.rpeBadge, { backgroundColor: rpeColor }]}>
+                              <Text style={styles.rpeBadgeText}>RPE {set.rpe}</Text>
+                            </View>
+                          )}
+                          <Text style={styles.editHint}>Edit</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
@@ -1259,7 +1343,8 @@ export default function LogWorkoutScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -1343,7 +1428,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
@@ -1708,5 +1795,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "white",
     fontWeight: "600",
+  },
+  dragHint: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 12,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  exercisesContainer: {
+    gap: 12,
+  },
+  exerciseWrapper: {
+    marginBottom: 4,
+  },
+  exerciseCard: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    overflow: "hidden",
+  },
+  exerciseCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#f9f9f9",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  dragHandleButton: {
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  exerciseNameButton: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  exerciseActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  moveButton: {
+    padding: 4,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

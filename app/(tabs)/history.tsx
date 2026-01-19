@@ -19,12 +19,14 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     Alert,
+    Keyboard,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from "react-native";
 
@@ -327,8 +329,9 @@ export default function HistoryScreen() {
   }
 
   return (
-    <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={{flex: 1}}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {workouts.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No workouts yet</Text>
@@ -554,7 +557,8 @@ export default function HistoryScreen() {
           </View>
         </View>
       </Modal>
-    </>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -641,7 +645,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",

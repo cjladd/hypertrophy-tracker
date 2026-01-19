@@ -10,12 +10,14 @@ import { useEffect, useState } from "react";
 import {
     Alert,
     FlatList,
+    Keyboard,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from "react-native";
 
@@ -204,18 +206,19 @@ export default function ExercisesScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: "Manage Exercises" }} />
-      
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search exercises..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: "Manage Exercises" }} />
+        
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search exercises..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
 
       {/* Muscle Group Filter */}
       <ScrollView
@@ -360,7 +363,8 @@ export default function ExercisesScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

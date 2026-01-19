@@ -16,12 +16,14 @@ import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
     Alert,
+    Keyboard,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from "react-native";
 
@@ -224,10 +226,11 @@ export default function TemplatesScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: "Templates" }} />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: "Templates" }} />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
         {!hasTemplates ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Templates Yet</Text>
@@ -322,54 +325,68 @@ export default function TemplatesScreen() {
                   No exercises added yet. Tap &quot;+ Add&quot; to add exercises.
                 </Text>
               ) : (
-                selectedExerciseIds.map((exerciseId, index) => {
-                  const exercise = getExerciseById(exerciseId);
-                  if (!exercise) return null;
+                <>
+                  <Text style={styles.dragHint}>Use arrows to reorder exercises</Text>
+                  {selectedExerciseIds.map((exerciseId, index) => {
+                    const exercise = getExerciseById(exerciseId);
+                    if (!exercise) return null;
 
-                  return (
-                    <View key={exerciseId} style={styles.selectedExerciseRow}>
-                      <View style={styles.reorderButtons}>
-                        <TouchableOpacity
-                          style={[
-                            styles.reorderButton,
-                            index === 0 && styles.reorderButtonDisabled,
-                          ]}
-                          onPress={() => handleMoveExercise(index, "up")}
-                          disabled={index === 0}
-                        >
-                          <Ionicons name="chevron-up" size={14} color="#333" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.reorderButton,
-                            index === selectedExerciseIds.length - 1 &&
-                              styles.reorderButtonDisabled,
-                          ]}
-                          onPress={() => handleMoveExercise(index, "down")}
-                          disabled={index === selectedExerciseIds.length - 1}
-                        >
-                          <Ionicons name="chevron-down" size={14} color="#333" />
-                        </TouchableOpacity>
+                    return (
+                      <View key={exerciseId} style={styles.selectedExerciseRow}>
+                        <View style={styles.dragIndicator}>
+                          <Ionicons name="menu" size={20} color="#999" />
+                        </View>
+                        
+                        <View style={styles.selectedExerciseInfo}>
+                          <Text style={styles.selectedExerciseName}>
+                            {index + 1}. {exercise.name}
+                          </Text>
+                          <Text style={styles.selectedExerciseMuscle}>
+                            {exercise.muscle_group.replace("_", " ")}
+                          </Text>
+                        </View>
+
+                        <View style={styles.exerciseActionButtons}>
+                          <TouchableOpacity
+                            style={[
+                              styles.reorderButton,
+                              index === 0 && styles.reorderButtonDisabled,
+                            ]}
+                            onPress={() => handleMoveExercise(index, "up")}
+                            disabled={index === 0}
+                          >
+                            <Ionicons 
+                              name="chevron-up" 
+                              size={18} 
+                              color={index === 0 ? "#ccc" : "#007AFF"} 
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.reorderButton,
+                              index === selectedExerciseIds.length - 1 &&
+                                styles.reorderButtonDisabled,
+                            ]}
+                            onPress={() => handleMoveExercise(index, "down")}
+                            disabled={index === selectedExerciseIds.length - 1}
+                          >
+                            <Ionicons 
+                              name="chevron-down" 
+                              size={18} 
+                              color={index === selectedExerciseIds.length - 1 ? "#ccc" : "#007AFF"} 
+                            />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.removeButton}
+                            onPress={() => handleRemoveExercise(exerciseId)}
+                          >
+                            <Ionicons name="close" size={20} color="#FF3B30" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-
-                      <View style={styles.selectedExerciseInfo}>
-                        <Text style={styles.selectedExerciseName}>
-                          {index + 1}. {exercise.name}
-                        </Text>
-                        <Text style={styles.selectedExerciseMuscle}>
-                          {exercise.muscle_group.replace("_", " ")}
-                        </Text>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => handleRemoveExercise(exerciseId)}
-                      >
-                        <Ionicons name="close" size={16} color="#FF3B30" />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                })
+                    );
+                  })}
+                </>
               )}
             </View>
           </ScrollView>
@@ -382,7 +399,8 @@ export default function TemplatesScreen() {
           onSelect={handleAddExercise}
         />
       </Modal>
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -538,7 +556,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
@@ -652,11 +671,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFE5E5",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 12,
+    marginLeft: 8,
   },
   removeButtonText: {
     color: "#FF3B30",
     fontSize: 16,
     fontWeight: "600",
+  },
+  dragHint: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 12,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
+  dragIndicator: {
+    padding: 4,
+    marginRight: 8,
+  },
+  exerciseActionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 });

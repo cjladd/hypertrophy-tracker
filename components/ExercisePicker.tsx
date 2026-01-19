@@ -4,14 +4,17 @@ import { MUSCLE_GROUPS, type Exercise, type MuscleGroup } from "@/lib/types";
 import { useEffect, useState } from "react";
 import {
     FlatList,
+    Keyboard,
     Modal,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const FILTER_OPTIONS: (MuscleGroup | "all")[] = ["all", ...MUSCLE_GROUPS];
 
@@ -112,7 +115,8 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
       transparent={false}
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Select Exercise</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -171,6 +175,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
           keyExtractor={(item) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No exercises found</Text>
@@ -180,7 +185,8 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
             </View>
           }
         />
-      </View>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }

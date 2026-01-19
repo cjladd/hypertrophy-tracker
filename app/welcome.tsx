@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type RoutineWithDays = Routine & { days: RoutineDay[] };
 
@@ -91,14 +92,14 @@ export default function Welcome() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {renderStep()}
       <View style={styles.dotsContainer}>
         {[0, 1, 2].map((i) => (
           <View key={i} style={[styles.dot, step === i && styles.dotActive]} />
         ))}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -294,7 +295,7 @@ const styles = StyleSheet.create({
   stepContainer: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   dotsContainer: {
