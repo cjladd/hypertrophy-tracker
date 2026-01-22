@@ -4,6 +4,7 @@
 
 import { getRPEColor } from "@/components/RPEPicker";
 import {
+    addSet,
     deleteSet,
     deleteWorkout,
     getExercises,
@@ -55,6 +56,7 @@ export default function HistoryScreen() {
   const [editReps, setEditReps] = useState("");
   const [editRpe, setEditRpe] = useState<string>("");
   const [editSetModalVisible, setEditSetModalVisible] = useState(false);
+  const [isAddingSet, setIsAddingSet] = useState(false); // true = adding new, false = editing existing
 
   // Notes editing state
   const [editingNotes, setEditingNotes] = useState(false);
@@ -224,6 +226,19 @@ export default function HistoryScreen() {
     setEditWeight(String(set.weight_lb));
     setEditReps(String(set.reps));
     setEditRpe(set.rpe !== null ? String(set.rpe) : "");
+    setIsAddingSet(false);
+    setEditSetModalVisible(true);
+  };
+
+  const openAddSet = (workoutExercise: WorkoutExerciseWithSets) => {
+    setEditingSet(null);
+    setEditingWorkoutExercise(workoutExercise);
+    // Pre-fill with last set values if available, or defaults
+    const lastSet = workoutExercise.sets[workoutExercise.sets.length - 1];
+    setEditWeight(lastSet ? String(lastSet.weight_lb) : "");
+    setEditReps(lastSet ? String(lastSet.reps) : "");
+    setEditRpe(lastSet?.rpe !== null && lastSet?.rpe !== undefined ? String(lastSet.rpe) : "");
+    setIsAddingSet(true);
     setEditSetModalVisible(true);
   };
 
@@ -231,6 +246,49 @@ export default function HistoryScreen() {
     setEditSetModalVisible(false);
     setEditingSet(null);
     setEditingWorkoutExercise(null);
+    setIsAddingSet(false);
+  };
+
+  const handleAddNewSet = async () => {
+    if (!editingWorkoutExercise || !selectedWorkout) return;
+
+    const weightNum = parseFloat(editWeight);
+    const repsNum = parseInt(editReps, 10);
+    const rpeNum = editRpe ? parseFloat(editRpe) : undefined;
+
+    if (isNaN(weightNum) || weightNum < 0) {
+      Alert.alert("Invalid Weight", "Please enter a valid weight");
+      return;
+    }
+    if (isNaN(repsNum) || repsNum <= 0) {
+      Alert.alert("Invalid Reps", "Please enter a valid number of reps");
+      return;
+    }
+    if (rpeNum !== undefined && (rpeNum < 1 || rpeNum > 10)) {
+      Alert.alert("Invalid RPE", "RPE must be between 1 and 10");
+      return;
+    }
+
+    try {
+      // Calculate the next set index
+      const nextSetIndex = editingWorkoutExercise.sets.length + 1;
+
+      await addSet({
+        workoutExerciseId: editingWorkoutExercise.id,
+        setIndex: nextSetIndex,
+        weightLb: weightNum,
+        reps: repsNum,
+        rpe: rpeNum,
+      });
+
+      // Recompute progression state for this exercise (prog_engine.md §10)
+      await recomputeProgressionState(editingWorkoutExercise.exercise_id);
+
+      closeEditSet();
+      await refreshSelectedWorkout();
+    } catch {
+      Alert.alert("Error", "Failed to add set");
+    }
   };
 
   const handleSaveSet = async () => {
@@ -484,6 +542,12 @@ export default function HistoryScreen() {
                           </TouchableOpacity>
                         ))
                       )}
+                      <TouchableOpacity
+                        style={styles.addSetButton}
+                        onPress={() => openAddSet(we)}
+                      >
+                        <Text style={styles.addSetButtonText}>+ Add Set</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ))}
@@ -493,7 +557,7 @@ export default function HistoryScreen() {
         </View>
       </Modal>
 
-      {/* Edit Set Modal */}
+      {/* Edit/Add Set Modal */}
       <Modal
         visible={editSetModalVisible}
         animationType="fade"
@@ -502,7 +566,14 @@ export default function HistoryScreen() {
       >
         <View style={styles.editModalOverlay}>
           <View style={styles.editModalContent}>
-            <Text style={styles.editModalTitle}>Edit Set</Text>
+            <Text style={styles.editModalTitle}>
+              {isAddingSet ? "Add Set" : "Edit Set"}
+            </Text>
+            {isAddingSet && editingWorkoutExercise && (
+              <Text style={styles.editModalSubtitle}>
+                {editingWorkoutExercise.exercise.name} - Set {editingWorkoutExercise.sets.length + 1}
+              </Text>
+            )}
 
             <View style={styles.editFormRow}>
               <Text style={styles.editLabel}>Weight (lb)</Text>
@@ -537,21 +608,26 @@ export default function HistoryScreen() {
               />
             </View>
 
-            <View style={styles.editModalButtons}>
-              <TouchableOpacity
-                style={styles.editDeleteButton}
-                onPress={handleDeleteSet}
-              >
-                <Text style={styles.editDeleteText}>Delete Set</Text>
-              </TouchableOpacity>
-            </View>
+            {!isAddingSet && (
+              <View style={styles.editModalButtons}>
+                <TouchableOpacity
+                  style={styles.editDeleteButton}
+                  onPress={handleDeleteSet}
+                >
+                  <Text style={styles.editDeleteText}>Delete Set</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.editModalButtons}>
               <TouchableOpacity style={styles.editCancelButton} onPress={closeEditSet}>
                 <Text style={styles.editCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.editSaveButton} onPress={handleSaveSet}>
-                <Text style={styles.editSaveText}>Save</Text>
+              <TouchableOpacity 
+                style={styles.editSaveButton} 
+                onPress={isAddingSet ? handleAddNewSet : handleSaveSet}
+              >
+                <Text style={styles.editSaveText}>{isAddingSet ? "Add" : "Save"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -776,6 +852,20 @@ const styles = StyleSheet.create({
     color: "#999",
     fontStyle: "italic",
   },
+  addSetButton: {
+    backgroundColor: "#e8f4fd",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#007AFF",
+    borderStyle: "dashed",
+  },
+  addSetButtonText: {
+    color: "#007AFF",
+    fontWeight: "600",
+    fontSize: 14,
+  },
   setRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -829,7 +919,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 20,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  editModalSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
     textAlign: "center",
   },
   editFormRow: {
