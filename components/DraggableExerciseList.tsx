@@ -1,10 +1,14 @@
 // components/DraggableExerciseList.tsx
 // Reusable draggable list component for reordering exercises
-// Uses up/down arrows for reliable reordering without complex gesture handling
+// Uses react-native-draggable-flatlist for proper drag-to-reorder functionality
 
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import DraggableFlatList, {
+    RenderItemParams,
+    ScaleDecorator,
+} from "react-native-draggable-flatlist";
 
 export interface DraggableItem {
   id: string;
@@ -17,85 +21,106 @@ export interface DraggableItem {
 interface DraggableExerciseListProps {
   items: DraggableItem[];
   onReorder: (fromIndex: number, toIndex: number) => void;
-  itemHeight?: number;
 }
 
 export default function DraggableExerciseList({
   items,
   onReorder,
 }: DraggableExerciseListProps) {
-  const handleMoveUp = (index: number) => {
-    if (index > 0) {
-      onReorder(index, index - 1);
-    }
+  const renderItem = ({
+    item,
+    drag,
+    isActive,
+    getIndex,
+  }: RenderItemParams<DraggableItem>) => {
+    const index = getIndex() ?? 0;
+    return (
+      <ScaleDecorator>
+        <View
+          style={[
+            styles.itemContainer,
+            isActive && styles.itemContainerActive,
+          ]}
+        >
+          <View style={styles.orderNumber}>
+            <Text style={styles.orderNumberText}>{index + 1}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.dragHandle}
+            onLongPress={drag}
+            delayLongPress={100}
+          >
+            <Ionicons name="menu" size={24} color={isActive ? "#007AFF" : "#999"} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.itemContent}
+            onPress={item.onPress}
+            disabled={!item.onPress || isActive}
+          >
+            <View style={styles.itemTextContainer}>
+              <Text style={styles.itemName}>{item.displayName}</Text>
+              {item.subtitle && (
+                <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          {item.onRemove && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={item.onRemove}
+              disabled={isActive}
+            >
+              <Ionicons name="close" size={20} color="#FF3B30" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScaleDecorator>
+    );
   };
 
-  const handleMoveDown = (index: number) => {
-    if (index < items.length - 1) {
-      onReorder(index, index + 1);
+  const handleDragEnd = ({
+    from,
+    to,
+  }: {
+    data: DraggableItem[];
+    from: number;
+    to: number;
+  }) => {
+    if (from !== to) {
+      onReorder(from, to);
     }
   };
 
   return (
     <View style={styles.container}>
-      {items.map((item, index) => (
-        <View key={item.id} style={styles.itemContainer}>
-          <View style={styles.dragHandle}>
-            <Ionicons name="menu" size={24} color="#999" />
-          </View>
-
-          <TouchableOpacity
-            style={styles.itemContent}
-            onPress={item.onPress}
-            disabled={!item.onPress}
-          >
-            <View style={styles.itemTextContainer}>
-              <Text style={styles.itemName}>{item.displayName}</Text>
-              {item.subtitle && <Text style={styles.itemSubtitle}>{item.subtitle}</Text>}
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.reorderButtons}>
-            <TouchableOpacity
-              style={[styles.reorderButton, index === 0 && styles.reorderButtonDisabled]}
-              onPress={() => handleMoveUp(index)}
-              disabled={index === 0}
-            >
-              <Ionicons
-                name="chevron-up"
-                size={18}
-                color={index === 0 ? "#ccc" : "#007AFF"}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.reorderButton,
-                index === items.length - 1 && styles.reorderButtonDisabled,
-              ]}
-              onPress={() => handleMoveDown(index)}
-              disabled={index === items.length - 1}
-            >
-              <Ionicons
-                name="chevron-down"
-                size={18}
-                color={index === items.length - 1 ? "#ccc" : "#007AFF"}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {item.onRemove && (
-            <TouchableOpacity style={styles.removeButton} onPress={item.onRemove}>
-              <Text style={styles.removeText}>×</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ))}
+      <Text style={styles.dragHint}>Hold and drag ☰ to reorder</Text>
+      <DraggableFlatList
+        data={items}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        onDragEnd={handleDragEnd}
+        containerStyle={styles.listContainer}
+        scrollEnabled={false}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    width: "100%",
+  },
+  dragHint: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 8,
+    fontStyle: "italic",
+  },
+  listContainer: {
     width: "100%",
   },
   itemContainer: {
@@ -107,7 +132,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e0e0e0",
     paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+  },
+  itemContainerActive: {
+    backgroundColor: "#e3f2fd",
+    borderColor: "#007AFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  orderNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#007AFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  orderNumberText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
   dragHandle: {
     padding: 8,
@@ -131,29 +179,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  reorderButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  reorderButton: {
-    padding: 6,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reorderButtonDisabled: {
-    opacity: 0.5,
-  },
   removeButton: {
     padding: 8,
     justifyContent: "center",
     alignItems: "center",
-  },
-  removeText: {
-    fontSize: 28,
-    color: "#FF3B30",
-    fontWeight: "bold",
-    lineHeight: 28,
   },
 });
 

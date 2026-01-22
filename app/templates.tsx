@@ -2,6 +2,7 @@
 // Templates screen for CRUD operations on workout templates
 // Per PRD section 3E: Create, read, update, delete templates; edit exercise order
 
+import DraggableExerciseList, { DraggableItem } from "@/components/DraggableExerciseList";
 import ExercisePicker from "@/components/ExercisePicker";
 import {
     createTemplate,
@@ -11,7 +12,6 @@ import {
     updateTemplate,
 } from "@/lib/repo";
 import type { Exercise, RoutineWithTemplates, Template } from "@/lib/types";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -157,12 +157,13 @@ export default function TemplatesScreen() {
     setSelectedExerciseIds(selectedExerciseIds.filter((id) => id !== exerciseId));
   };
 
-  const handleMoveExercise = (fromIndex: number, direction: "up" | "down") => {
-    const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
+  const handleMoveExercise = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
     if (toIndex < 0 || toIndex >= selectedExerciseIds.length) return;
 
     const newOrder = [...selectedExerciseIds];
-    [newOrder[fromIndex], newOrder[toIndex]] = [newOrder[toIndex], newOrder[fromIndex]];
+    const [movedItem] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedItem);
     setSelectedExerciseIds(newOrder);
   };
 
@@ -277,7 +278,7 @@ export default function TemplatesScreen() {
       <Modal
         visible={modalVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={closeModal}
       >
         <View style={styles.modalContainer}>
@@ -325,68 +326,21 @@ export default function TemplatesScreen() {
                   No exercises added yet. Tap &quot;+ Add&quot; to add exercises.
                 </Text>
               ) : (
-                <>
-                  <Text style={styles.dragHint}>Tap arrows to reorder exercises</Text>
-                  {selectedExerciseIds.map((exerciseId, index) => {
-                    const exercise = getExerciseById(exerciseId);
-                    if (!exercise) return null;
-
-                    return (
-                      <View key={exerciseId} style={styles.selectedExerciseRow}>
-                        <View style={styles.orderNumber}>
-                          <Text style={styles.orderNumberText}>{index + 1}</Text>
-                        </View>
-                        
-                        <View style={styles.selectedExerciseInfo}>
-                          <Text style={styles.selectedExerciseName}>
-                            {exercise.name}
-                          </Text>
-                          <Text style={styles.selectedExerciseMuscle}>
-                            {exercise.muscle_group.replace("_", " ")}
-                          </Text>
-                        </View>
-
-                        <View style={styles.exerciseActionButtons}>
-                          <TouchableOpacity
-                            style={[
-                              styles.reorderButton,
-                              index === 0 && styles.reorderButtonDisabled,
-                            ]}
-                            onPress={() => handleMoveExercise(index, "up")}
-                            disabled={index === 0}
-                          >
-                            <Ionicons 
-                              name="chevron-up" 
-                              size={22} 
-                              color={index === 0 ? "#ccc" : "#007AFF"} 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[
-                              styles.reorderButton,
-                              index === selectedExerciseIds.length - 1 &&
-                                styles.reorderButtonDisabled,
-                            ]}
-                            onPress={() => handleMoveExercise(index, "down")}
-                            disabled={index === selectedExerciseIds.length - 1}
-                          >
-                            <Ionicons 
-                              name="chevron-down" 
-                              size={22} 
-                              color={index === selectedExerciseIds.length - 1 ? "#ccc" : "#007AFF"} 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.removeButton}
-                            onPress={() => handleRemoveExercise(exerciseId)}
-                          >
-                            <Ionicons name="close" size={20} color="#FF3B30" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </>
+                <DraggableExerciseList
+                  items={selectedExerciseIds
+                    .map((exerciseId): DraggableItem | null => {
+                      const exercise = getExerciseById(exerciseId);
+                      if (!exercise) return null;
+                      return {
+                        id: exerciseId,
+                        displayName: exercise.name,
+                        subtitle: exercise.muscle_group.replace("_", " "),
+                        onRemove: () => handleRemoveExercise(exerciseId),
+                      };
+                    })
+                    .filter((item): item is DraggableItem => item !== null)}
+                  onReorder={handleMoveExercise}
+                />
               )}
             </View>
           </ScrollView>
