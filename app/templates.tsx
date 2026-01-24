@@ -25,7 +25,11 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 
 type ModalMode = "create" | "edit" | null;
 
@@ -285,70 +289,72 @@ export default function TemplatesScreen() {
         presentationStyle="fullScreen"
         onRequestClose={closeModal}
       >
-        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={closeModal}>
-              <Text style={styles.modalCancel}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {modalMode === "create" ? "New Template" : "Edit Template"}
-            </Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.modalSave}>Save</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalContent}>
-            {/* Template Name */}
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Template Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={templateName}
-                onChangeText={setTemplateName}
-                placeholder="e.g., Push Day, Leg Day"
-                placeholderTextColor="#999"
-              />
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+          <SafeAreaView style={styles.modalContainer} edges={["top"]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={closeModal}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {modalMode === "create" ? "New Template" : "Edit Template"}
+              </Text>
+              <TouchableOpacity onPress={handleSave}>
+                <Text style={styles.modalSave}>Save</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Exercises */}
-            <View style={styles.formGroup}>
-              <View style={styles.exercisesHeader}>
-                <Text style={styles.formLabel}>
-                  Exercises ({selectedExerciseIds.length})
-                </Text>
-                <TouchableOpacity
-                  style={styles.addExerciseButton}
-                  onPress={() => setExercisePickerVisible(true)}
-                >
-                  <Text style={styles.addExerciseText}>+ Add</Text>
-                </TouchableOpacity>
+            <ScrollView style={styles.modalContent}>
+              {/* Template Name */}
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Template Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={templateName}
+                  onChangeText={setTemplateName}
+                  placeholder="e.g., Push Day, Leg Day"
+                  placeholderTextColor="#999"
+                />
               </View>
 
-              {selectedExerciseIds.length === 0 ? (
-                <Text style={styles.noExercisesText}>
-                  No exercises added yet. Tap "+ Add" to add exercises.
-                </Text>
-              ) : (
-                <DraggableExerciseList
-                  items={selectedExerciseIds
-                    .map((exerciseId): DraggableItem | null => {
-                      const exercise = getExerciseById(exerciseId);
-                      if (!exercise) return null;
-                      return {
-                        id: exerciseId,
-                        displayName: exercise.name,
-                        subtitle: exercise.muscle_group.replace("_", " "),
-                        onRemove: () => handleRemoveExercise(exerciseId),
-                      };
-                    })
-                    .filter((item): item is DraggableItem => item !== null)}
-                  onReorder={handleMoveExercise}
-                />
-              )}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
+              {/* Exercises */}
+              <View style={styles.formGroup}>
+                <View style={styles.exercisesHeader}>
+                  <Text style={styles.formLabel}>
+                    Exercises ({selectedExerciseIds.length})
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.addExerciseButton}
+                    onPress={() => setExercisePickerVisible(true)}
+                  >
+                    <Text style={styles.addExerciseText}>+ Add</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {selectedExerciseIds.length === 0 ? (
+                  <Text style={styles.noExercisesText}>
+                    No exercises added yet. Tap "+ Add" to add exercises.
+                  </Text>
+                ) : (
+                  <DraggableExerciseList
+                    items={selectedExerciseIds
+                      .map((exerciseId): DraggableItem | null => {
+                        const exercise = getExerciseById(exerciseId);
+                        if (!exercise) return null;
+                        return {
+                          id: exerciseId,
+                          displayName: exercise.name,
+                          subtitle: exercise.muscle_group.replace("_", " "),
+                          onRemove: () => handleRemoveExercise(exerciseId),
+                        };
+                      })
+                      .filter((item): item is DraggableItem => item !== null)}
+                    onReorder={handleMoveExercise}
+                  />
+                )}
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </SafeAreaProvider>
 
         {/* Exercise Picker Modal */}
         <ExercisePicker
@@ -517,8 +523,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
