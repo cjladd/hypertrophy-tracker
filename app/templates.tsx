@@ -15,15 +15,15 @@ import type { Exercise, RoutineWithTemplates, Template } from "@/lib/types";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    Alert,
-    Keyboard,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Keyboard,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
   SafeAreaProvider,

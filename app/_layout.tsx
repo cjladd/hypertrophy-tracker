@@ -2,7 +2,7 @@ import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, StatusBar, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -22,6 +22,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar barStyle="dark-content" />
       <SafeAreaProvider>
         <SettingsProvider>
           <RootNavigator />
