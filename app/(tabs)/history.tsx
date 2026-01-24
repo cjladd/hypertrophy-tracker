@@ -269,8 +269,11 @@ export default function HistoryScreen() {
     }
 
     try {
-      // Calculate the next set index
-      const nextSetIndex = editingWorkoutExercise.sets.length + 1;
+      const nextSetIndex =
+        editingWorkoutExercise.sets.reduce(
+          (maxIndex, set) => Math.max(maxIndex, set.set_index),
+          0
+        ) + 1;
 
       await addSet({
         workoutExerciseId: editingWorkoutExercise.id,
@@ -344,6 +347,16 @@ export default function HistoryScreen() {
             const exerciseId = editingWorkoutExercise?.exercise_id;
             
             await deleteSet(editingSet.id);
+            if (editingWorkoutExercise) {
+              const updatedSets = editingWorkoutExercise.sets
+                .filter((set) => set.id !== editingSet.id)
+                .map((set, index) => ({ ...set, set_index: index + 1 }));
+              await Promise.all(
+                updatedSets.map((set) =>
+                  updateSet(set.id, { setIndex: set.set_index })
+                )
+              );
+            }
             
             // Recompute progression state for this exercise (prog_engine.md §10)
             if (exerciseId) {
@@ -988,3 +1001,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+

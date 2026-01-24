@@ -35,7 +35,7 @@ import {
 import type { Exercise, ProgressionSuggestion, Routine, RoutineDay, RoutineWithTemplates, Set, Template, WorkoutExercise } from "@/lib/types";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Alert,
     Keyboard,
@@ -90,6 +90,7 @@ export default function LogWorkoutScreen() {
   const [weight, setWeight] = useState("");
   const [rpe, setRpe] = useState<number | undefined>(undefined);
   const [inlineStatus, setInlineStatus] = useState("");
+  const inlineStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Progression suggestion state (prog_engine.md section 11)
   const [currentSuggestion, setCurrentSuggestion] = useState<ProgressionSuggestion | null>(null);
@@ -483,11 +484,22 @@ export default function LogWorkoutScreen() {
 
       // Keep weight, reps, and RPE for next set (same exercise pattern)
       setInlineStatus("Set logged");
-      setTimeout(() => setInlineStatus(""), 1500);
+      if (inlineStatusTimeoutRef.current) {
+        clearTimeout(inlineStatusTimeoutRef.current);
+      }
+      inlineStatusTimeoutRef.current = setTimeout(() => setInlineStatus(""), 1500);
     } catch {
       Alert.alert("Error", "Failed to log set");
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (inlineStatusTimeoutRef.current) {
+        clearTimeout(inlineStatusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getTotalSets = () => workoutExercises.reduce((sum, we) => sum + we.sets.length, 0);
 

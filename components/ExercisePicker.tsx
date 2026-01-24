@@ -12,7 +12,11 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  initialWindowMetrics,
+} from "react-native-safe-area-context";
 
 const FILTER_OPTIONS: (MuscleGroup | "all")[] = ["all", ...MUSCLE_GROUPS];
 
@@ -113,13 +117,14 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Select Exercise</Text>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Text style={styles.closeButtonText}>X</Text>
-          </TouchableOpacity>
-        </View>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <SafeAreaView style={styles.container} edges={["top"]}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Select Exercise</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>X</Text>
+            </TouchableOpacity>
+          </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -161,28 +166,29 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
         </ScrollView>
 
         {/* Exercise List */}
-        <FlatList
-          data={filteredExercises}
-          renderItem={({ item, index }) => (
-            <View>
-              {renderSectionHeader(item.muscle_group)}
-              {renderExerciseItem({ item })}
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No exercises found</Text>
-              <Text style={styles.emptySubtext}>
-                Try adjusting your search or filters
-              </Text>
-            </View>
-          }
-        />
-      </SafeAreaView>
+          <FlatList
+            data={filteredExercises}
+            renderItem={({ item, index }) => (
+              <View>
+                {renderSectionHeader(item.muscle_group)}
+                {renderExerciseItem({ item })}
+              </View>
+            )}
+            keyExtractor={(item) => item.id}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No exercises found</Text>
+                <Text style={styles.emptySubtext}>
+                  Try adjusting your search or filters
+                </Text>
+              </View>
+            }
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

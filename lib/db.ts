@@ -10,6 +10,7 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
 
   try {
     dbInstance = await SQLite.openDatabaseAsync('hypertrophy_tracker.db');
+    await dbInstance.execAsync('PRAGMA foreign_keys = ON;');
     await initializeTables(dbInstance);
     return dbInstance;
   } catch (error) {
