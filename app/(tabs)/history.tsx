@@ -453,7 +453,7 @@ export default function HistoryScreen() {
           </View>
 
           {selectedWorkout && (
-            <ScrollView style={styles.modalContent}>
+            <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
               <View style={styles.detailHeader}>
                 <Text style={styles.detailDate}>
                   {formatDate(selectedWorkout.started_at)}

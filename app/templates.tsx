@@ -169,14 +169,12 @@ export default function TemplatesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <View style={styles.container}>
-          <Stack.Screen options={{ title: "Templates" }} />
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: "Templates" }} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -229,11 +227,10 @@ export default function TemplatesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: "Templates" }} />
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: "Templates" }} />
 
-        <ScrollView
+      <ScrollView
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
@@ -360,8 +357,7 @@ export default function TemplatesScreen() {
           onSelect={handleAddExercise}
         />
       </Modal>
-      </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
