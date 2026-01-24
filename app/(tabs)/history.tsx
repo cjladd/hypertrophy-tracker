@@ -27,7 +27,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
 
@@ -387,9 +386,13 @@ export default function HistoryScreen() {
   }
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={{flex: 1}}>
-        <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <View style={{flex: 1}}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={Keyboard.dismiss}
+      >
         {workouts.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No workouts yet</Text>
@@ -633,8 +636,7 @@ export default function HistoryScreen() {
           </View>
         </View>
       </Modal>
-      </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
 

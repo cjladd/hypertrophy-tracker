@@ -21,6 +21,7 @@ import {
     View,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -273,6 +274,7 @@ export default function ProgressScreen() {
   }
 
   return (
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Progress</Text>
       <Text style={styles.subtitle}>Track your strength gains over time</Text>
@@ -298,7 +300,7 @@ export default function ProgressScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setPickerVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Exercise</Text>
             <TouchableOpacity onPress={() => setPickerVisible(false)}>
@@ -372,13 +374,18 @@ export default function ProgressScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
+        </SafeAreaView>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",

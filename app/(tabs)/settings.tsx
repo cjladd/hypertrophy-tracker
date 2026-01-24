@@ -13,7 +13,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View
 } from "react-native";
 
@@ -104,8 +103,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      onScrollBeginDrag={Keyboard.dismiss}
+    >
       <Text style={styles.title}>Settings</Text>
       <Text style={styles.subtitle}>Tweak defaults and run dev tools.</Text>
 
@@ -225,8 +228,8 @@ export default function SettingsScreen() {
           <Text style={styles.busyText}>Working...</Text>
         </View>
       )}
-      </ScrollView>
-    </TouchableWithoutFeedback>
+      </View>
+    </ScrollView>
   );
 }
 

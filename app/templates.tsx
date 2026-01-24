@@ -23,9 +23,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type ModalMode = "create" | "edit" | null;
 
@@ -169,12 +169,14 @@ export default function TemplatesScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: "Templates" }} />
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View style={styles.container}>
+          <Stack.Screen options={{ title: "Templates" }} />
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -227,11 +229,16 @@ export default function TemplatesScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.container}>
         <Stack.Screen options={{ title: "Templates" }} />
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
+        >
         {!hasTemplates ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Templates Yet</Text>
@@ -281,7 +288,7 @@ export default function TemplatesScreen() {
         presentationStyle="fullScreen"
         onRequestClose={closeModal}
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView style={styles.modalContainer} edges={["top"]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal}>
               <Text style={styles.modalCancel}>Cancel</Text>
@@ -323,7 +330,7 @@ export default function TemplatesScreen() {
 
               {selectedExerciseIds.length === 0 ? (
                 <Text style={styles.noExercisesText}>
-                  No exercises added yet. Tap &quot;+ Add&quot; to add exercises.
+                  No exercises added yet. Tap "+ Add" to add exercises.
                 </Text>
               ) : (
                 <DraggableExerciseList
@@ -344,7 +351,7 @@ export default function TemplatesScreen() {
               )}
             </View>
           </ScrollView>
-        </View>
+        </SafeAreaView>
 
         {/* Exercise Picker Modal */}
         <ExercisePicker
@@ -354,11 +361,15 @@ export default function TemplatesScreen() {
         />
       </Modal>
       </View>
-    </TouchableWithoutFeedback>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",

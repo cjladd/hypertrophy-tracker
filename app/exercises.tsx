@@ -12,12 +12,12 @@ import {
     FlatList,
     Keyboard,
     Modal,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
 
@@ -206,19 +206,18 @@ export default function ExercisesScreen() {
   );
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: "Manage Exercises" }} />
-        
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: "Manage Exercises" }} />
+      
+      {/* Search Bar */}
+      <Pressable style={styles.searchContainer} onPress={Keyboard.dismiss}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search exercises..."
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-        </View>
+      </Pressable>
 
       {/* Muscle Group Filter */}
       <ScrollView
@@ -260,6 +259,7 @@ export default function ExercisesScreen() {
         keyExtractor={(item) => item.id}
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No exercises found</Text>
@@ -363,8 +363,7 @@ export default function ExercisesScreen() {
           </View>
         </View>
       </Modal>
-      </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
 

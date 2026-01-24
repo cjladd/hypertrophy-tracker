@@ -3,7 +3,7 @@ import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   useEffect(() => {
@@ -21,9 +21,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <SettingsProvider>
-        <RootNavigator />
-      </SettingsProvider>
+      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+        <SettingsProvider>
+          <RootNavigator />
+        </SettingsProvider>
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }

@@ -45,7 +45,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View
 } from "react-native";
 
@@ -1032,11 +1031,14 @@ export default function LogWorkoutScreen() {
   }
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: "Log Workout" }} />
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: "Log Workout" }} />
 
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={Keyboard.dismiss}
+      >
           {/* Exercise Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Exercise</Text>
@@ -1337,8 +1339,7 @@ export default function LogWorkoutScreen() {
           </View>
         </View>
       </Modal>
-      </View>
-    </TouchableWithoutFeedback>
+    </View>
   );
 }
 
