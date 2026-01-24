@@ -228,7 +228,6 @@ export default function SettingsScreen() {
           <Text style={styles.busyText}>Working...</Text>
         </View>
       )}
-      </View>
     </ScrollView>
   );
 }
