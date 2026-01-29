@@ -2,7 +2,15 @@ import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, StatusBar, View } from "react-native";
+import {
+    ActivityIndicator,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    StatusBar,
+    TouchableWithoutFeedback,
+    View,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -25,7 +33,16 @@ export default function RootLayout() {
       <StatusBar barStyle="dark-content" />
       <SafeAreaProvider>
         <SettingsProvider>
-          <RootNavigator />
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={{ flex: 1 }}>
+                <RootNavigator />
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </SettingsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

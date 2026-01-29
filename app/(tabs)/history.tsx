@@ -4,30 +4,30 @@
 
 import { getRPEColor } from "@/components/RPEPicker";
 import {
-    addSet,
-    deleteSet,
-    deleteWorkout,
-    getExercises,
-    getSetsForWorkoutExercise,
-    getWorkoutExercises,
-    listRecentWorkouts,
-    recomputeProgressionState,
-    updateSet,
-    updateWorkoutNotes
+  addSet,
+  deleteSet,
+  deleteWorkout,
+  getExercises,
+  getSetsForWorkoutExercise,
+  getWorkoutExercises,
+  listRecentWorkouts,
+  recomputeProgressionState,
+  updateSet,
+  updateWorkoutNotes
 } from "@/lib/repo";
 import type { Exercise, Set, Workout, WorkoutExercise } from "@/lib/types";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    Alert,
-    Keyboard,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Keyboard,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 interface WorkoutExerciseWithSets extends WorkoutExercise {
@@ -570,85 +570,89 @@ export default function HistoryScreen() {
               </View>
             </ScrollView>
           )}
-        </View>
-      </Modal>
+          {editSetModalVisible && (
+            <View style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
+              <View style={styles.editModalOverlay}>
+                <View style={styles.editModalContent}>
+                  <Text style={styles.editModalTitle}>
+                    {isAddingSet ? "Add Set" : "Edit Set"}
+                  </Text>
+                  {isAddingSet && editingWorkoutExercise && (
+                    <Text style={styles.editModalSubtitle}>
+                      {editingWorkoutExercise.exercise.name} - Set {
+                        editingWorkoutExercise.sets.length + 1
+                      }
+                    </Text>
+                  )}
 
-      {/* Edit/Add Set Modal */}
-      <Modal
-        visible={editSetModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={closeEditSet}
-      >
-        <View style={styles.editModalOverlay}>
-          <View style={styles.editModalContent}>
-            <Text style={styles.editModalTitle}>
-              {isAddingSet ? "Add Set" : "Edit Set"}
-            </Text>
-            {isAddingSet && editingWorkoutExercise && (
-              <Text style={styles.editModalSubtitle}>
-                {editingWorkoutExercise.exercise.name} - Set {editingWorkoutExercise.sets.length + 1}
-              </Text>
-            )}
+                  <View style={styles.editFormRow}>
+                    <Text style={styles.editLabel}>Weight (lb)</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={editWeight}
+                      onChangeText={setEditWeight}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                    />
+                  </View>
 
-            <View style={styles.editFormRow}>
-              <Text style={styles.editLabel}>Weight (lb)</Text>
-              <TextInput
-                style={styles.editInput}
-                value={editWeight}
-                onChangeText={setEditWeight}
-                keyboardType="decimal-pad"
-                placeholder="0"
-              />
-            </View>
+                  <View style={styles.editFormRow}>
+                    <Text style={styles.editLabel}>Reps</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={editReps}
+                      onChangeText={setEditReps}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                    />
+                  </View>
 
-            <View style={styles.editFormRow}>
-              <Text style={styles.editLabel}>Reps</Text>
-              <TextInput
-                style={styles.editInput}
-                value={editReps}
-                onChangeText={setEditReps}
-                keyboardType="number-pad"
-                placeholder="0"
-              />
-            </View>
+                  <View style={styles.editFormRow}>
+                    <Text style={styles.editLabel}>RPE (optional)</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={editRpe}
+                      onChangeText={setEditRpe}
+                      keyboardType="decimal-pad"
+                      placeholder="optional"
+                    />
+                  </View>
 
-            <View style={styles.editFormRow}>
-              <Text style={styles.editLabel}>RPE (optional)</Text>
-              <TextInput
-                style={styles.editInput}
-                value={editRpe}
-                onChangeText={setEditRpe}
-                keyboardType="decimal-pad"
-                placeholder="optional"
-              />
-            </View>
+                  {!isAddingSet && (
+                    <View style={styles.editModalButtons}>
+                      <TouchableOpacity
+                        style={styles.editDeleteButton}
+                        onPress={handleDeleteSet}
+                      >
+                        <Text style={styles.editDeleteText}>Delete Set</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-            {!isAddingSet && (
-              <View style={styles.editModalButtons}>
-                <TouchableOpacity
-                  style={styles.editDeleteButton}
-                  onPress={handleDeleteSet}
-                >
-                  <Text style={styles.editDeleteText}>Delete Set</Text>
-                </TouchableOpacity>
+                  <View style={styles.editModalButtons}>
+                    <TouchableOpacity
+                      style={styles.editCancelButton}
+                      onPress={closeEditSet}
+                    >
+                      <Text style={styles.editCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.editSaveButton}
+                      onPress={isAddingSet ? handleAddNewSet : handleSaveSet}
+                    >
+                      <Text style={styles.editSaveText}>
+                        {isAddingSet ? "Add" : "Save"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            )}
-
-            <View style={styles.editModalButtons}>
-              <TouchableOpacity style={styles.editCancelButton} onPress={closeEditSet}>
-                <Text style={styles.editCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.editSaveButton} 
-                onPress={isAddingSet ? handleAddNewSet : handleSaveSet}
-              >
-                <Text style={styles.editSaveText}>{isAddingSet ? "Add" : "Save"}</Text>
-              </TouchableOpacity>
             </View>
-          </View>
+          )}
         </View>
       </Modal>
+
+
     </View>
   );
 }
