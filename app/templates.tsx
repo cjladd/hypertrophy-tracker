@@ -5,11 +5,11 @@
 import DraggableExerciseList, { DraggableItem } from "@/components/DraggableExerciseList";
 import ExercisePicker from "@/components/ExercisePicker";
 import {
-    createTemplate,
-    deleteTemplate,
-    getExercises,
-    getTemplatesGroupedByRoutine,
-    updateTemplate,
+  createTemplate,
+  deleteTemplate,
+  getExercises,
+  getTemplatesGroupedByRoutine,
+  updateTemplate,
 } from "@/lib/repo";
 import type { Exercise, RoutineWithTemplates, Template } from "@/lib/types";
 import { Stack, useFocusEffect } from "expo-router";
@@ -25,11 +25,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  SafeAreaProvider,
-  SafeAreaView,
-  initialWindowMetrics,
-} from "react-native-safe-area-context";
 
 type ModalMode = "create" | "edit" | null;
 
@@ -286,11 +281,10 @@ export default function TemplatesScreen() {
       <Modal
         visible={modalVisible}
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="pageSheet"
         onRequestClose={closeModal}
       >
-        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-          <SafeAreaView style={styles.modalContainer} edges={["top"]}>
+        <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={closeModal}>
                 <Text style={styles.modalCancel}>Cancel</Text>
@@ -353,8 +347,7 @@ export default function TemplatesScreen() {
                 )}
               </View>
             </ScrollView>
-          </SafeAreaView>
-        </SafeAreaProvider>
+        </View>
 
         {/* Exercise Picker Modal */}
         <ExercisePicker
