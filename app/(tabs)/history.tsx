@@ -8,7 +8,9 @@ import {
   deleteSet,
   deleteWorkout,
   getExercises,
+  getRoutineDayById,
   getSetsForWorkoutExercise,
+  getTemplate,
   getWorkoutExercises,
   listRecentWorkouts,
   recomputeProgressionState,
@@ -40,6 +42,7 @@ interface WorkoutWithDetails extends Workout {
   exerciseCount: number;
   setCount: number;
   duration: number | null;
+  routineDayName?: string;
 }
 
 export default function HistoryScreen() {
@@ -95,12 +98,22 @@ export default function HistoryScreen() {
         ? Math.round((effectiveEnd - workout.started_at) / 60000)
         : null;
 
+    let routineDayName: string | undefined;
+    if (workout.routine_day_id) {
+      const rd = await getRoutineDayById(workout.routine_day_id);
+      if (rd) routineDayName = rd.name;
+    } else if (workout.template_id) {
+      const t = await getTemplate(workout.template_id);
+      if (t) routineDayName = t.name;
+    }
+
     return {
       ...workout,
       exercises: exercisesWithSets,
       exerciseCount: workoutExercises.length,
       setCount: totalSets,
       duration,
+      routineDayName,
     };
   };
 
@@ -421,9 +434,16 @@ export default function HistoryScreen() {
               onPress={() => openWorkoutDetail(workout)}
             >
               <View style={styles.workoutHeader}>
-                <Text style={styles.workoutDate}>
-                  {formatShortDate(workout.started_at)}
-                </Text>
+                <View>
+                  <Text style={styles.workoutDate}>
+                    {formatShortDate(workout.started_at)}
+                  </Text>
+                  {workout.routineDayName && (
+                    <Text style={styles.routineName}>
+                      {workout.routineDayName}
+                    </Text>
+                  )}
+                </View>
                 <Text style={styles.workoutDuration}>
                   {formatDuration(workout.duration)}
                 </Text>
@@ -707,6 +727,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+  },
+  routineName: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
   workoutDuration: {
     fontSize: 14,

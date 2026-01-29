@@ -25,6 +25,7 @@ export const PROGRESSION_DEFAULTS = {
   stallThreshold: 3,         // 3 consecutive non-success exposures triggers reset
   resetPct: 0.90,            // Reset weight is 10% reduction
   resetRoundLb: 5,           // Reset weight rounds to nearest 5 lb
+  warmupRpeThreshold: 6,     // Sets with RPE <= 6 are considered warm-ups
 } as const;
 
 // ============================================================================
@@ -81,8 +82,18 @@ export function evaluateSuccess(
     throw new Error('Cannot evaluate success with no sets');
   }
 
-  const topSet = sets[0];
-  const hasBackoff = sets.length >= 2;
+  // Filter out warm-up sets (RPE <= 6)
+  // We keep sets where RPE is null (imputed later) or RPE > threshold
+  const workingSets = sets.filter(s => 
+    s.rpe === null || s.rpe > PROGRESSION_DEFAULTS.warmupRpeThreshold
+  );
+
+  // Fallback: If all sets were warm-ups, use the original sets (first set)
+  // This prevents crashing if user only did light work
+  const efficientSets = workingSets.length > 0 ? workingSets : sets;
+
+  const topSet = efficientSets[0];
+  const hasBackoff = efficientSets.length >= 2;
   const topReps = topSet.reps;
   const imputedRpe = imputeRPE(topSet, repRangeMin);
 
@@ -326,13 +337,13 @@ export interface ExposureData {
  * Process a single exposure and return updated state
  * Used for both real-time updates and historical recomputation
  */
-export function processExposure(
-  exposure: ExposureData,
-  currentState: ProgressionState,
-  exercise: Pick<Exercise, 'rep_range_min' | 'rep_range_max'>,
-  weightJumpLb: number
-): ProgressionState {
-  if (exposure.sets.length === 0) {
+export fceiling = Math.max(
+    currentState.progression_ceiling || exercise.rep_range_max,
+    exercise.rep_range_max
+  );
+
+  const evaluation = evaluateSuccess(exposure.sets, ceiling, exercise.rep_range_min);
+  const topSet = evaluation.topSet
     return currentState;
   }
 
