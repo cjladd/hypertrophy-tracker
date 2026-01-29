@@ -3,11 +3,11 @@
 // Deterministic rules that map logged sets -> next-session suggestion
 
 import type {
-    Exercise,
-    ProgressionReasonCode,
-    ProgressionState,
-    ProgressionSuggestion,
-    Set,
+  Exercise,
+  ProgressionReasonCode,
+  ProgressionState,
+  ProgressionSuggestion,
+  Set,
 } from './types';
 
 // ============================================================================
@@ -337,23 +337,23 @@ export interface ExposureData {
  * Process a single exposure and return updated state
  * Used for both real-time updates and historical recomputation
  */
-export fceiling = Math.max(
-    currentState.progression_ceiling || exercise.rep_range_max,
-    exercise.rep_range_max
-  );
-
-  const evaluation = evaluateSuccess(exposure.sets, ceiling, exercise.rep_range_min);
-  const topSet = evaluation.topSet
+export function processExposure(
+  exposure: ExposureData,
+  currentState: ProgressionState,
+  exercise: Pick<Exercise, 'rep_range_min' | 'rep_range_max'>,
+  weightJumpLb: number
+): ProgressionState {
+  if (exposure.sets.length === 0) {
     return currentState;
   }
 
-  const topSet = exposure.sets[0];
   const ceiling = Math.max(
     currentState.progression_ceiling || exercise.rep_range_max,
     exercise.rep_range_max
   );
 
   const evaluation = evaluateSuccess(exposure.sets, ceiling, exercise.rep_range_min);
+  const topSet = evaluation.topSet;
 
   const decision = makeProgressionDecision(
     evaluation,

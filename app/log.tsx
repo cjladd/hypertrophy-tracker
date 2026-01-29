@@ -1120,6 +1120,9 @@ export default function LogWorkoutScreen() {
             {/* Progression suggestion message (prog_engine.md section 11) */}
             {currentSuggestion && currentWorkoutExercise?.sets.length === 0 && (
               <View style={styles.suggestionContainer}>
+                <Text style={{ fontSize: 10, color: '#1565C0', opacity: 0.8, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>
+                  Recommended by Progression Engine
+                </Text>
                 <Text style={styles.suggestionText}>
                   {currentSuggestion.reasonMessage}
                 </Text>
