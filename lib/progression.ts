@@ -33,16 +33,12 @@ export const PROGRESSION_DEFAULTS = {
 // ============================================================================
 
 /**
- * Impute RPE for a set when missing (prog_engine.md §4)
- * - If rpe missing AND reps >= repRangeMin: assume RPE 8 (safe pass)
- * - If rpe missing AND reps < repRangeMin: assume RPE 10 (failure)
- * - Else: use actual rpe
+ * Get effective RPE for a set (prog_engine.md §4)
+ * - Returns actual RPE if present
+ * - Returns null if unknown (do not impute values)
  */
-export function imputeRPE(set: Set, repRangeMin: number): number {
-  if (set.rpe !== null) {
-    return set.rpe;
-  }
-  return set.reps >= repRangeMin ? 8 : 10;
+export function imputeRPE(set: Set): number | null {
+  return set.rpe;
 }
 
 /**
@@ -64,7 +60,7 @@ export interface SuccessEvaluation {
   conditionalSuccess: boolean;  // A && C true but RPE=10
   topSet: Set;
   topReps: number;
-  imputedRpe: number;
+  imputedRpe: number | null;
   hasBackoff: boolean;
   failureReason?: 'NOT_AT_CEILING' | 'RPE_TOO_HIGH' | 'NOT_ENOUGH_SETS';
 }
@@ -95,14 +91,14 @@ export function evaluateSuccess(
   const topSet = efficientSets[0];
   const hasBackoff = efficientSets.length >= 2;
   const topReps = topSet.reps;
-  const imputedRpe = imputeRPE(topSet, repRangeMin);
+  const imputedRpe = imputeRPE(topSet);
 
   // Success conditions:
   // A (Reps): topReps >= ceiling
-  // B (RPE soft gate): topRpe <= rpeSoftGate
+  // B (RPE soft gate): topRpe <= rpeSoftGate OR topRpe is Unknown (benefit of doubt)
   // C (Volume): hasBackoff == true
   const conditionA = topReps >= progressionCeiling;
-  const conditionB = imputedRpe <= PROGRESSION_DEFAULTS.rpeSoftGate;
+  const conditionB = imputedRpe === null || imputedRpe <= PROGRESSION_DEFAULTS.rpeSoftGate;
   const conditionC = hasBackoff;
 
   const success = conditionA && conditionB && conditionC;

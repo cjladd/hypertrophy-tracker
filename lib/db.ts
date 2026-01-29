@@ -1,23 +1,41 @@
 // lib/db.ts
 import * as SQLite from 'expo-sqlite';
 
-let dbInstance: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDB(): Promise<SQLite.SQLiteDatabase> {
-  if (dbInstance) {
-    return dbInstance;
+  if (dbPromise) {
+    return dbPromise;
   }
 
-  try {
-    dbInstance = await SQLite.openDatabaseAsync('hypertrophy_tracker.db');
-    await dbInstance.execAsync('PRAGMA foreign_keys = ON;');
-    await initializeTables(dbInstance);
-    return dbInstance;
-  } catch (error) {
-    console.error('Failed to initialize database:', error);
-    throw error;
+  dbPromise = (async () => {
+    try {
+      const db = await SQLite.openDatabaseAsync('hypertrophy_tracker.db');
+      await db.execAsync('PRAGMA foreign_keys = ON;');
+      await initializeTables(db);
+      return db;
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+      dbPromise = null; // Reset promise on failure so we can try again
+      throw error;
+    }
+  })();
+
+  return dbPromise;
+}
+
+export async function closeDB() {
+  if (dbPromise) {
+    try {
+      const db = await dbPromise;
+      await db.closeAsync();
+      dbPromise = null;
+    } catch (error) {
+      console.error('Failed to close database:', error);
+    }
   }
 }
+
 
 async function initializeTables(db: SQLite.SQLiteDatabase) {
   try {
@@ -173,17 +191,6 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
   } catch (error) {
     console.error('Failed to create tables:', error);
     throw error;
-  }
-}
-
-export async function closeDB() {
-  if (dbInstance) {
-    try {
-      await dbInstance.closeAsync();
-      dbInstance = null;
-    } catch (error) {
-      console.error('Failed to close database:', error);
-    }
   }
 }
 

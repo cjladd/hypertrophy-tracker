@@ -1,5 +1,6 @@
 // context/SettingsContext.tsx
 // Settings aligned with PRD v1 + onboarding state
+import { DEFAULT_SETTINGS as REPO_DEFAULTS, SETTINGS_KEY } from '@/lib/repo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -18,12 +19,13 @@ type Ctx = Settings & {
 };
 
 const DEFAULTS: Settings = {
-  weightJumpLb: 5,
+  ...REPO_DEFAULTS,
   hasCompletedOnboarding: false,
   activeRoutineId: null,
 };
 
-const KEY = 'ht_settings_v3'; // Bumped version for new fields
+// Key imported from repo to avoid redundancy
+// const KEY = 'ht_settings_v3'; 
 
 const SettingsContext = createContext<Ctx | null>(null);
 
@@ -32,7 +34,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then((raw) => {
+    AsyncStorage.getItem(SETTINGS_KEY).then((raw) => {
       if (raw) {
         try { setState({ ...DEFAULTS, ...JSON.parse(raw) }); } catch {}
       }
@@ -42,7 +44,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading) {
-      AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => {});
+      AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(state)).catch(() => {});
     }
   }, [state, isLoading]);
 
