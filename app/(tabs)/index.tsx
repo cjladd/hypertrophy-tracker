@@ -98,7 +98,9 @@ export default function Index() {
       {/* Stats Overview */}
       <View style={styles.statsSection}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{getLastWorkoutText()}</Text>
+          <Text style={styles.statNumber} adjustsFontSizeToFit numberOfLines={1}>
+            {getLastWorkoutText()}
+          </Text>
           <Text style={styles.statLabel}>Last Workout</Text>
         </View>
         <View style={styles.statCard}>
@@ -244,6 +246,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#007AFF",
     marginBottom: 5,
+    textAlign: "center",
   },
   statLabel: {
     fontSize: 14,
