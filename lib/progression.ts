@@ -78,11 +78,8 @@ export function evaluateSuccess(
     throw new Error('Cannot evaluate success with no sets');
   }
 
-  // Filter out warm-up sets (RPE <= 6)
-  // We keep sets where RPE is null (imputed later) or RPE > threshold
-  const workingSets = sets.filter(s => 
-    s.rpe === null || s.rpe > PROGRESSION_DEFAULTS.warmupRpeThreshold
-  );
+  // Filter out warm-up sets (explicitly marked)
+  const workingSets = sets.filter(s => s.set_type !== 'warmup');
 
   // Fallback: If all sets were warm-ups, use the original sets (first set)
   // This prevents crashing if user only did light work

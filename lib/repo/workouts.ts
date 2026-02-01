@@ -202,17 +202,18 @@ export async function addSet(args: {
   weightLb: number;
   reps: number;
   rpe?: number;
+  setType?: 'working' | 'warmup';
 }): Promise<Set> {
-  const { workoutExerciseId, setIndex, weightLb, reps, rpe } = args;
+  const { workoutExerciseId, setIndex, weightLb, reps, rpe, setType = 'working' } = args;
   const db = await getDB();
   const id = uuid();
   const createdAt = Date.now();
   await run(
     db,
-    'INSERT INTO sets (id, workout_exercise_id, set_index, weight_lb, reps, rpe, created_at) VALUES (?,?,?,?,?,?,?)',
-    [id, workoutExerciseId, setIndex, weightLb, reps, rpe ?? null, createdAt]
+    'INSERT INTO sets (id, workout_exercise_id, set_index, weight_lb, reps, rpe, set_type, created_at) VALUES (?,?,?,?,?,?,?,?)',
+    [id, workoutExerciseId, setIndex, weightLb, reps, rpe ?? null, setType, createdAt]
   );
-  return { id, workout_exercise_id: workoutExerciseId, set_index: setIndex, weight_lb: weightLb, reps, rpe: rpe ?? null, created_at: createdAt };
+  return { id, workout_exercise_id: workoutExerciseId, set_index: setIndex, weight_lb: weightLb, reps, rpe: rpe ?? null, set_type: setType, created_at: createdAt };
 }
 
 export async function updateSet(
@@ -255,7 +256,7 @@ export async function getSetsForWorkoutExercise(workoutExerciseId: string): Prom
   const db = await getDB();
   return await all<Set>(
     db,
-    'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
+    'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, set_type, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
     [workoutExerciseId]
   );
 }
@@ -264,7 +265,7 @@ export async function getSetsForWorkout(workoutId: string): Promise<(Set & { exe
   const db = await getDB();
   return await all<Set & { exercise_id: string }>(
     db,
-    `SELECT s.id, s.workout_exercise_id, s.set_index, s.weight_lb, s.reps, s.rpe, s.created_at, we.exercise_id
+    `SELECT s.id, s.workout_exercise_id, s.set_index, s.weight_lb, s.reps, s.rpe, s.set_type, s.created_at, we.exercise_id
      FROM sets s
      JOIN workout_exercises we ON s.workout_exercise_id = we.id
      WHERE we.workout_id = ?

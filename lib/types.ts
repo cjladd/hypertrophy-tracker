@@ -92,6 +92,7 @@ export interface Set {
   weight_lb: number;
   reps: number;
   rpe: number | null; // optional
+  set_type: 'working' | 'warmup'; // Added for warm up sets
   created_at: number;
 }
 

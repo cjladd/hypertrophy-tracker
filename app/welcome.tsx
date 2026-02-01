@@ -29,14 +29,15 @@ export default function Welcome() {
   }, []);
 
   const loadRoutines = async () => {
+    setLoading(true);
     try {
       // Seeding is handled by _layout.tsx on app init
       // If routines aren't ready yet, retry after a short delay
       let allRoutines = await listRoutines();
       
-      // Retry up to 3 times if no routines found (seeding may still be in progress)
+      // Retry up to 20 times (10 seconds) if no routines found (seeding may still be in progress)
       let retries = 0;
-      while (allRoutines.length === 0 && retries < 3) {
+      while (allRoutines.length === 0 && retries < 20) {
         await new Promise(resolve => setTimeout(resolve, 500));
         allRoutines = await listRoutines();
         retries++;
@@ -84,6 +85,7 @@ export default function Welcome() {
             onSkip={handleSkip}
             onBack={() => setStep(1)}
             loading={loading}
+            onRetry={loadRoutines}
           />
         );
       default:
@@ -176,6 +178,7 @@ function RoutineStep({
   onSkip,
   onBack,
   loading,
+  onRetry,
 }: {
   routines: RoutineWithDays[];
   selectedRoutineId: string | null;
@@ -184,6 +187,7 @@ function RoutineStep({
   onSkip: () => void;
   onBack: () => void;
   loading: boolean;
+  onRetry?: () => void;
 }) {
   const getRoutineDescription = (routine: RoutineWithDays): string => {
     const dayCount = routine.days.length;
@@ -210,6 +214,15 @@ function RoutineStep({
       </Text>
       {loading ? (
         <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+      ) : routines.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No routines found.</Text>
+          {onRetry && (
+            <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       ) : (
         <ScrollView style={styles.routineList} showsVerticalScrollIndicator={false}>
           {routines.map((routine) => (
@@ -521,5 +534,28 @@ const styles = StyleSheet.create({
   routineDays: {
     fontSize: 13,
     color: "#888",
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: "#666",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

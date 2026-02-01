@@ -442,7 +442,7 @@ export default function LogWorkoutScreen() {
     setRpe(undefined);
   };
 
-  const handleAddSet = async () => {
+  const logSet = async (setType: 'working' | 'warmup') => {
     if (!workoutId || !currentWorkoutExercise) return;
 
     const repsNum = parseInt(reps);
@@ -467,6 +467,7 @@ export default function LogWorkoutScreen() {
         weightLb: weightNum,
         reps: repsNum,
         rpe: rpe,
+        setType, // Pass the set type
       });
 
       // Update local state
@@ -483,7 +484,7 @@ export default function LogWorkoutScreen() {
       setCurrentWorkoutExercise(updatedWorkoutExercise);
 
       // Keep weight, reps, and RPE for next set (same exercise pattern)
-      setInlineStatus("Set logged");
+      setInlineStatus(setType === 'warmup' ? "Warmup logged" : "Set logged");
       if (inlineStatusTimeoutRef.current) {
         clearTimeout(inlineStatusTimeoutRef.current);
       }
@@ -492,6 +493,10 @@ export default function LogWorkoutScreen() {
       Alert.alert("Error", "Failed to log set");
     }
   };
+
+  const handleAddSet = () => logSet('working');
+  const handleAddWarmupSet = () => logSet('warmup');
+
 
   useEffect(() => {
     return () => {
@@ -1136,9 +1141,14 @@ export default function LogWorkoutScreen() {
 
             <RPEPicker value={rpe} onChange={setRpe} />
 
-            <TouchableOpacity style={styles.addSetButton} onPress={handleAddSet}>
-              <Text style={styles.addSetButtonText}>Add Set</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.addSetButton} onPress={handleAddSet}>
+                <Text style={styles.addSetButtonText}>Add Set</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addWarmupButton} onPress={handleAddWarmupSet}>
+                <Text style={styles.addWarmupButtonText}>Warm Up</Text>
+              </TouchableOpacity>
+            </View>
             {inlineStatus ? (
               <Text style={styles.inlineStatus}>{inlineStatus}</Text>
             ) : null}
@@ -1208,15 +1218,26 @@ export default function LogWorkoutScreen() {
                     </View>
                     
                     {we.sets.map((set) => {
-                      const rpeColor = getRPEColor(set.rpe ?? undefined);
+                      const isWarmup = set.set_type === 'warmup';
+                      // Use neutral/gray for warmups, standard RPE scale for working sets
+                      const rpeColor = isWarmup ? '#999' : getRPEColor(set.rpe ?? undefined);
+                      
                       return (
                         <TouchableOpacity
                           key={set.id}
-                          style={[styles.setItem, { borderLeftColor: rpeColor }]}
+                          style={[
+                            styles.setItem, 
+                            { borderLeftColor: rpeColor },
+                            isWarmup && styles.setItemWarmup
+                          ]}
                           onPress={() => openEditSet(set, we)}
                         >
                           <Text style={styles.setText}>
-                            Set {set.set_index}:{" "}
+                            {isWarmup ? (
+                              <Text style={styles.warmupLabel}>WARM UP: </Text>
+                            ) : (
+                              `Set ${set.set_index}: `
+                            )}
                             <Text style={styles.setTextBold}>
                               {set.reps} x {set.weight_lb} lb
                             </Text>
@@ -1552,15 +1573,32 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
   },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
   addSetButton: {
+    flex: 2,
     backgroundColor: "#34C759",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 10,
   },
   addSetButtonText: {
     color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  addWarmupButton: {
+    flex: 1,
+    backgroundColor: "#E0E0E0",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addWarmupButtonText: {
+    color: "#444",
     fontSize: 16,
     fontWeight: "600",
   },
@@ -1635,6 +1673,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     borderLeftWidth: 4,
     borderLeftColor: "#007AFF",
+  },
+  setItemWarmup: {
+    backgroundColor: "#f0f0f0",
+    borderLeftColor: "#999",
+  },
+  warmupLabel: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#888",
+    marginRight: 4,
   },
   setText: {
     fontSize: 14,

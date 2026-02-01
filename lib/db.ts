@@ -95,10 +95,18 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
         weight_lb REAL NOT NULL,
         reps INTEGER NOT NULL,
         rpe REAL,
+        set_type TEXT DEFAULT 'working',
         created_at INTEGER NOT NULL,
         FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
       );
     `);
+    
+    // Migration: Add set_type column if it doesn't exist
+    try {
+      await db.execAsync("ALTER TABLE sets ADD COLUMN set_type TEXT DEFAULT 'working'");
+    } catch (e) {
+      // Column likely already exists
+    }
 
     // Create progression_state table (prog_engine.md §3)
     // This is a cache - can be dropped and rebuilt from workout history
