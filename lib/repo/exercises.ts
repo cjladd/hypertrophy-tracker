@@ -71,10 +71,11 @@ export async function seedExercises() {
     ];
 
     for (const ex of defaultExercises) {
+      const now = Date.now();
       await run(
         db,
-        'INSERT INTO exercises (id, name, muscle_group, is_custom, rep_range_min, rep_range_max) VALUES (?,?,?,0,8,12)',
-        [uuid(), ex.name, ex.muscleGroup]
+        'INSERT INTO exercises (id, name, muscle_group, is_custom, rep_range_min, rep_range_max, created_at) VALUES (?,?,?,0,8,12,?)',
+        [uuid(), ex.name, ex.muscleGroup, now]
       );
     }
     console.log('Seeded default exercises');

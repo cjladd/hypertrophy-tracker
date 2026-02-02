@@ -11,7 +11,11 @@ export async function getDB(): Promise<SQLite.SQLiteDatabase> {
   dbPromise = (async () => {
     try {
       const db = await SQLite.openDatabaseAsync('hypertrophy_tracker.db');
-      await db.execAsync('PRAGMA foreign_keys = ON;');
+      try {
+        await db.execAsync('PRAGMA foreign_keys = ON;');
+      } catch (e) {
+        console.warn('Failed to enable foreign keys (might be web environment):', e);
+      }
       await initializeTables(db);
       return db;
     } catch (error) {

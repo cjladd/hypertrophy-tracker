@@ -1,7 +1,7 @@
 import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -13,18 +13,45 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function RootLayout() {
+  const [dbReady, setDbReady] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
+
   useEffect(() => {
     // Initialize database and seed exercises/routines if needed
     const initializeData = async () => {
       try {
+        console.log("Seeding data...");
         await seedExercises();
+        console.log("Exercises seeded");
         await seedAllRoutines(); // Seed all preset routines
+        console.log("Routines seeded");
       } catch (err) {
         console.error("Failed to seed data:", err);
+        setDbError(String(err)); // Capture error to display
+      } finally {
+        setDbReady(true);
       }
     };
     initializeData();
   }, []);
+
+  if (!dbReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={{ marginTop: 20 }}>Initializing Database...</Text>
+      </View>
+    );
+  }
+
+  if (dbError) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff", padding: 20 }}>
+        <Text style={{ color: "red", textAlign: "center", marginBottom: 10 }}>Database Error</Text>
+        <Text style={{ textAlign: "center" }}>{dbError}</Text>
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

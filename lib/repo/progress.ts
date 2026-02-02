@@ -88,27 +88,32 @@ export async function getExerciseExposures(exerciseId: string): Promise<Exposure
 export async function getLastExposureSets(exerciseId: string): Promise<Set[] | null> {
   const db = await getDB();
 
-  // Get the most recent workout_exercise for this exercise
-  const lastWe = await get<{ we_id: string }>(
+  // Get recent exposures (check last 5 to find one with sets)
+  // This handles cases where an exercise was added to a workout but skipped (0 sets)
+  const recentWes = await all<{ we_id: string }>(
     db,
     `SELECT we.id as we_id
      FROM workout_exercises we
      JOIN workouts w ON we.workout_id = w.id
      WHERE we.exercise_id = ? AND w.ended_at IS NOT NULL
      ORDER BY w.started_at DESC
-     LIMIT 1`,
+     LIMIT 5`,
     [exerciseId]
   );
 
-  if (!lastWe) return null;
+  for (const we of recentWes) {
+    const sets = await all<Set>(
+      db,
+      'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, set_type, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
+      [we.we_id]
+    );
 
-  const sets = await all<Set>(
-    db,
-    'SELECT id, workout_exercise_id, set_index, weight_lb, reps, rpe, created_at FROM sets WHERE workout_exercise_id = ? ORDER BY set_index ASC',
-    [lastWe.we_id]
-  );
+    if (sets.length > 0) {
+      return sets;
+    }
+  }
 
-  return sets.length > 0 ? sets : null;
+  return null;
 }
 
 /**
