@@ -7,6 +7,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     StatusBar,
+    Text,
     View
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
