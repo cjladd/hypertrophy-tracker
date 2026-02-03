@@ -1,39 +1,69 @@
 # Hypertrophy Tracker (Expo + SQLite)
 
-Offline-first workout logger focused on hypertrophy progression. See `PRD.md` and `prog_engine.md` for the current spec.
+An offline-first workout logger focused on hypertrophy progression, built with React Native and Expo.
+
+## Vision
+To be the most streamlined, distraction-free workout companion that handles the math of progressive overload for you.
 
 ## Features
-- Log workouts with sets (weight, reps, RPE)
-- Templates with exercise ordering
-- Preset routines (PPL, Upper/Lower, Full Body, Bro Split)
-- Workout history with edit/delete and notes
-- Progress charts for top working weight
-- Progression suggestions using a triple-progression model
+- **Workout Logging**: Log sets (weight, reps, RPE) with ease.
+- **Smart Progression**: "Hypertrophy Engine" suggests weight jumps and progression based on performance.
+- **Routines & Templates**: Built-in support for PPL, Upper/Lower, Full Body splits, plus custom templates.
+- **History & Analytics**: View workout logs and track strength trends/volume over time.
+- **Exercise Management**: Custom exercise database with draggable reordering.
+- **Offline First**: All data stored locally using SQLite.
 
-## Tech stack
-- Expo + React Native
-- TypeScript
-- SQLite (expo-sqlite)
-- expo-router
+## Tech Stack
+- **Framework**: Expo + React Native
+- **Language**: TypeScript
+- **Navigation**: Expo Router (File-based routing)
+- **Database**: `expo-sqlite` (SQLite)
+- **Visualization**: `react-native-chart-kit`
+- **UI**: `react-native-draggable-flatlist`, `@expo/vector-icons`
 
-## Quick start
-- Install deps: `npm install`
-- Run dev server: `npx expo start` (Expo Go, simulator, or dev build)
+## Project Structure
 
-## App structure
-- `app/` screens (Expo Router): home, log workout, exercises, settings/dev tools
-- `lib/` SQLite setup and repo layer
-- `context/SettingsContext.tsx` simple app settings (weight jump)
+```
+cjladd-app/
+├── app/                  # Expo Router screens
+│   ├── (tabs)/           # Main bottom tab navigation
+│   │   ├── index.tsx     # Active workout / Dashboard
+│   │   ├── history.tsx   # Workout history
+│   │   ├── progress.tsx  # Charts & stats
+│   │   └── settings.tsx  # App settings & Dev tools
+│   ├── exercises.tsx     # Exercise selection/management
+│   ├── routines.tsx      # Routine selection
+│   ├── templates.tsx     # Template management
+│   ├── log.tsx           # Workout logging interface
+│   └── welcome.tsx       # Onboarding
+├── components/           # Reusable UI components
+├── context/              # React Context (State Management)
+├── lib/                  # Core logic
+│   ├── db.ts             # Database connection
+│   ├── progression.ts    # Progression algorithm
+│   └── repo/             # Data access layer (Repositories)
+└── assets/               # static assets
+```
 
-## Dev tools (in-app)
-- Home -> Settings -> Dev tools
-- Reset database: drops all tables, recreates, reseeds default exercises
-- Reseed defaults: seeds exercises without wiping workouts
-- Reset settings: restores weight jump to default
+## Quick Start
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+2. **Run the app**
+   ```bash
+   npx expo start
+   ```
+   - Press `s` in the terminal to switch between Expo Go and Development Build.
+   - Requires Android Studio / Xcode for local simulation, or Expo Go app on device.
 
-## Data and storage
-- Offline-first with local SQLite storage
-- No login or cloud sync in v1
+## Dev Tools & Debugging
+- Located in **Settings > Dev Tools**.
+- **Reset Database**: Drops tables and reseeds default data (Exercises, Routines).
+- **Reseed Defaults**: Adds default data without deleting existing workouts.
+- **Reset Settings**: Restores app preferences.
 
-## Notes
-- Pounds only in v1; KG toggle planned.
+## Data Model
+- The app uses a normalized SQLite database.
+- Core relationship: `Workouts` -> `WorkoutExercises` -> `Sets`.
+- See `lib/db.ts` and `lib/repo/` for schema details.
