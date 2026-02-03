@@ -1,7 +1,7 @@
 // app/log.tsx
 // Workout logging screen aligned with PRD v1
 // No warmups, no per-set notes, working sets only, weightLb
-// Progression engine integration per prog_engine.md
+// Progression engine integration
 
 import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
@@ -74,7 +74,7 @@ export default function LogWorkoutScreen() {
   const [templatePickerVisible, setTemplatePickerVisible] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
-  // Routine state (split_migration.md section 4)
+  // Routine state
   const [activeRoutine, setActiveRoutine] = useState<Routine | null>(null);
   const [nextRoutineDay, setNextRoutineDay] = useState<RoutineDay | null>(null);
   const [routineDays, setRoutineDays] = useState<RoutineDay[]>([]);
@@ -92,7 +92,7 @@ export default function LogWorkoutScreen() {
   const [inlineStatus, setInlineStatus] = useState("");
   const inlineStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Progression suggestion state (prog_engine.md section 11)
+  // Progression suggestion state
   const [currentSuggestion, setCurrentSuggestion] = useState<ProgressionSuggestion | null>(null);
 
   // Edit set modal state
@@ -212,7 +212,7 @@ export default function LogWorkoutScreen() {
     }
   };
 
-  // Start workout from routine day (split_migration.md section 4)
+  // Start workout from routine day
   const handleStartRoutineWorkout = async () => {
     if (!nextRoutineDay) return;
 
@@ -291,7 +291,7 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      // Get progression suggestion for first exercise (prog_engine.md section 11)
+      // Get progression suggestion for first exercise
       if (i === 0) {
         const suggestion = await getProgressionSuggestion(exerciseId);
         setCurrentSuggestion(suggestion);
@@ -344,7 +344,7 @@ export default function LogWorkoutScreen() {
         sets: [],
       });
 
-      // Get progression suggestion for first exercise (prog_engine.md section 11)
+      // Get progression suggestion for first exercise
       if (i === 0) {
         const suggestion = await getProgressionSuggestion(exerciseId);
         setCurrentSuggestion(suggestion);
@@ -379,7 +379,7 @@ export default function LogWorkoutScreen() {
       const orderIndex = workoutExercises.length;
       const workoutExercise = await addWorkoutExercise(workoutId, exercise.id, orderIndex);
 
-      // Get progression suggestion for this exercise (prog_engine.md section 11)
+      // Get progression suggestion for this exercise
       const suggestion = await getProgressionSuggestion(exercise.id);
       setCurrentSuggestion(suggestion);
 
@@ -421,7 +421,7 @@ export default function LogWorkoutScreen() {
   const selectWorkoutExercise = async (workoutExercise: WorkoutExerciseWithSets) => {
     setCurrentWorkoutExercise(workoutExercise);
 
-    // Get progression suggestion for this exercise (prog_engine.md section 11)
+    // Get progression suggestion for this exercise
     const suggestion = await getProgressionSuggestion(workoutExercise.exercise_id);
     setCurrentSuggestion(suggestion);
 
@@ -691,7 +691,7 @@ export default function LogWorkoutScreen() {
     // Check if we should prompt for template save
     const currentExerciseIds = workoutExercises.map((we) => we.exercise_id);
     
-    // Routine-based workout flow (split_migration.md section 5)
+    // Routine-based workout flow
     if (startMode === 'routine' && routineDayId) {
       const routineDay = await getRoutineDayById(routineDayId);
       if (routineDay?.template_id) {
@@ -834,7 +834,7 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await finishWorkout(workoutId);
-              // Update progression state for all exercises in this workout (prog_engine.md section 10)
+              // Update progression state for all exercises in this workout
               await updateProgressionAfterWorkout(workoutId);
               await promptSaveAsTemplate();
             } catch {
@@ -854,7 +854,7 @@ export default function LogWorkoutScreen() {
           <Text style={styles.startTitle}>Ready to train?</Text>
           <Text style={styles.startSubtitle}>Choose how to start</Text>
 
-          {/* Continue Routine - Primary CTA (split_migration.md section 4) */}
+          {/* Continue Routine - Primary CTA */}
           {nextRoutineDay && activeRoutine && (
             <TouchableOpacity
               style={[styles.startOptionButton, styles.startOptionRoutine]}
@@ -1122,7 +1122,7 @@ export default function LogWorkoutScreen() {
               </View>
             </View>
 
-            {/* Progression suggestion message (prog_engine.md section 11) */}
+            {/* Progression suggestion message */}
             {currentSuggestion && currentWorkoutExercise?.sets.length === 0 && (
               <View style={styles.suggestionContainer}>
                 <Text style={{ fontSize: 10, color: '#1565C0', opacity: 0.8, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>

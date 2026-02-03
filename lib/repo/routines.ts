@@ -6,7 +6,7 @@ import { createTemplate, getTemplates } from './templates';
 import { uuid } from './utils';
 
 // ============================================
-// ROUTINES (split_migration.md §2, §3)
+// ROUTINES
 // ============================================
 
 // Helper to create a routine with days (used by all seed functions)

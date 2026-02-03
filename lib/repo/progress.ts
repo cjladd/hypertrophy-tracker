@@ -6,7 +6,7 @@ import { Exercise, ProgressionState, ProgressionSuggestion, Set, Settings } from
 import { getSettings } from './settings';
 
 // ============================================
-// PROGRESSION STATE (prog_engine.md)
+// PROGRESSION STATE
 // ============================================
 
 /**
@@ -40,7 +40,7 @@ export async function upsertProgressionState(state: ProgressionState): Promise<v
 }
 
 /**
- * Get all exposures for an exercise ordered chronologically (prog_engine.md §10)
+ * Get all exposures for an exercise ordered chronologically 
  * An exposure is a workout where at least 1 set was logged for the exercise
  */
 export async function getExerciseExposures(exerciseId: string): Promise<ExposureData[]> {
@@ -117,7 +117,7 @@ export async function getLastExposureSets(exerciseId: string): Promise<Set[] | n
 }
 
 /**
- * Recompute progression state from workout history (prog_engine.md §10)
+ * Recompute progression state from workout history 
  * This MUST be called after any workout edit/delete to prevent drift
  */
 export async function recomputeProgressionState(exerciseId: string, settings?: Settings): Promise<void> {
@@ -179,7 +179,7 @@ export async function recomputeAllProgressionStates(settings?: Settings): Promis
 }
 
 /**
- * Get progression suggestion for an exercise (prog_engine.md §11)
+ * Get progression suggestion for an exercise
  * Returns suggested weight and reason code for UI display
  */
 export async function getProgressionSuggestion(exerciseId: string, settings?: Settings): Promise<ProgressionSuggestion> {

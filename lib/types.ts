@@ -49,7 +49,7 @@ export interface Template {
   created_at?: number;
 }
 
-// Routine for split-based training (split_migration.md §1)
+// Routine for split-based training
 export interface Routine {
   id: string;
   name: string;
@@ -57,7 +57,7 @@ export interface Routine {
   created_at?: number;
 }
 
-// Individual day within a routine (split_migration.md §1)
+// Individual day within a routine
 export interface RoutineDay {
   id: string;
   routine_id: string;
@@ -72,7 +72,7 @@ export interface Workout {
   started_at: number;
   ended_at: number | null;
   template_id: string | null;
-  routine_day_id: string | null; // Added for split_migration.md §1.2
+  routine_day_id: string | null;
   notes: string | null;
 }
 
@@ -96,7 +96,7 @@ export interface Set {
   created_at: number;
 }
 
-// Derived cache for progression engine (prog_engine.md §3)
+// Derived cache for progression engine
 // This state is a cache - MUST be recomputable from workout history
 export interface ProgressionState {
   exercise_id: string;
@@ -106,7 +106,7 @@ export interface ProgressionState {
   watch_next_exposure: number;          // 0 or 1 - set when progressing on RPE 10
 }
 
-// Reason codes for progression decisions (prog_engine.md §6-7)
+// Reason codes for progression decisions
 export type ProgressionReasonCode =
   | 'INCREASE'                 // Normal weight increment
   | 'EXPAND_CEILING_15'        // Triple progression: expand to 15 reps

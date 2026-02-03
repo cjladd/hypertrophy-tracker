@@ -1,5 +1,5 @@
 // lib/progression.ts
-// Progression Engine implementation per prog_engine.md
+// Progression Engine implementation
 // Deterministic rules that map logged sets -> next-session suggestion
 
 import type {
@@ -33,7 +33,7 @@ export const PROGRESSION_DEFAULTS = {
 // ============================================================================
 
 /**
- * Get effective RPE for a set (prog_engine.md §4)
+ * Get effective RPE for a set
  * - Returns actual RPE if present
  * - Returns null if unknown (do not impute values)
  */
@@ -42,7 +42,7 @@ export function imputeRPE(set: Set): number | null {
 }
 
 /**
- * Get UI anchor string for RPE value (prog_engine.md §4)
+ * Get UI anchor string for RPE value
  */
 export function getRPEAnchorLabel(rpe: number): string {
   if (rpe >= 10) return "Could not do another rep";
@@ -66,7 +66,7 @@ export interface SuccessEvaluation {
 }
 
 /**
- * Evaluate success for an exposure (prog_engine.md §5)
+ * Evaluate success for an exposure
  * Top-set driven with guardrail against "one-set wonders"
  */
 export function evaluateSuccess(
@@ -147,7 +147,7 @@ export function roundToNearest(value: number, roundTo: number): number {
 }
 
 /**
- * Make progression decision based on success evaluation (prog_engine.md §6-7)
+ * Make progression decision based on success evaluation
  */
 export function makeProgressionDecision(
   evaluation: SuccessEvaluation,
@@ -278,7 +278,7 @@ export function makeProgressionDecision(
 // ============================================================================
 
 /**
- * Get human-readable message for a reason code (prog_engine.md §11)
+ * Get human-readable message for a reason code
  */
 export function getReasonMessage(
   reasonCode: ProgressionReasonCode,

@@ -6,7 +6,7 @@ export const SETTINGS_KEY = 'ht_settings_v3';
 export const DEFAULT_SETTINGS: Settings = { weightJumpLb: 5 };
 
 /**
- * Get settings from AsyncStorage (prog_engine.md §2)
+ * Get settings from AsyncStorage
  * This is a standalone function for use in repo without React context
  */
 export async function getSettings(): Promise<Settings> {

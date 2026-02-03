@@ -1,6 +1,6 @@
 // app/history.tsx
 // History screen - View, edit, and delete past workouts (PRD A3D)
-// Progression recomputation on edit/delete per prog_engine.md §10
+// Progression recomputation on edit/delete
 
 import { getRPEColor } from "@/components/RPEPicker";
 import {
@@ -213,7 +213,7 @@ export default function HistoryScreen() {
               
               await deleteWorkout(workout.id);
               
-              // Recompute progression state for all affected exercises (prog_engine.md §10)
+              // Recompute progression state for all affected exercises
               for (const exerciseId of exerciseIds) {
                 await recomputeProgressionState(exerciseId);
               }
@@ -296,7 +296,7 @@ export default function HistoryScreen() {
         rpe: rpeNum,
       });
 
-      // Recompute progression state for this exercise (prog_engine.md §10)
+      // Recompute progression state for this exercise
       await recomputeProgressionState(editingWorkoutExercise.exercise_id);
 
       closeEditSet();
@@ -333,7 +333,7 @@ export default function HistoryScreen() {
         rpe: rpeNum,
       });
 
-      // Recompute progression state for this exercise (prog_engine.md §10)
+      // Recompute progression state for this exercise
       const exerciseId = editingWorkoutExercise?.exercise_id;
       if (exerciseId) {
         await recomputeProgressionState(exerciseId);
@@ -371,7 +371,7 @@ export default function HistoryScreen() {
               );
             }
             
-            // Recompute progression state for this exercise (prog_engine.md §10)
+            // Recompute progression state for this exercise
             if (exerciseId) {
               await recomputeProgressionState(exerciseId);
             }

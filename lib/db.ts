@@ -112,7 +112,7 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       // Column likely already exists
     }
 
-    // Create progression_state table (prog_engine.md §3)
+    // Create progression_state table
     // This is a cache - can be dropped and rebuilt from workout history
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS progression_state (
@@ -125,7 +125,7 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       );
     `);
 
-    // Migrate old progression_state schema to new one (prog_engine.md §3)
+    // Migrate old progression_state schema to new one
     // Check if old columns exist and migrate
     try {
       const tableInfo = await db.getAllAsync<{ name: string }>(
@@ -154,7 +154,7 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       // Ignore migration errors - table will work with new schema
     }
 
-    // Create routines table (split_migration.md §1)
+    // Create routines table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS routines (
         id TEXT PRIMARY KEY,
@@ -164,7 +164,7 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       );
     `);
 
-    // Create routine_days table (split_migration.md §1)
+    // Create routine_days table
     await db.execAsync(`
       CREATE TABLE IF NOT EXISTS routine_days (
         id TEXT PRIMARY KEY,
@@ -178,7 +178,7 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       );
     `);
 
-    // Add routine_day_id to workouts if not exists (split_migration.md §1.2)
+    // Add routine_day_id to workouts if not exists
     // SQLite doesn't support ADD COLUMN IF NOT EXISTS, so we check first
     try {
       await db.execAsync(`ALTER TABLE workouts ADD COLUMN routine_day_id TEXT REFERENCES routine_days(id) ON DELETE SET NULL`);

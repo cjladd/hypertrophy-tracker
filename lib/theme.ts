@@ -1,5 +1,5 @@
 // lib/theme.ts
-// Shared theme constants per styling.md
+// Shared theme constants
 // Centralized colors, spacing, and typography for consistency
 
 export const COLORS = {
@@ -90,7 +90,7 @@ export const SHADOWS = {
   },
 } as const;
 
-// RPE color scale (prog_engine.md §4)
+// RPE color scale
 export function getRPEColorFromTheme(rpe?: number): string {
   if (!rpe) return COLORS.textTertiary;
   if (rpe <= 7) return COLORS.success;    // Green - Moderate

@@ -1,5 +1,5 @@
 // components/RPEPicker.tsx
-// RPE picker with anchor labels per prog_engine.md §4
+// RPE picker with anchor labels
 import { COLORS, SHADOWS } from "@/lib/theme";
 import {
     ScrollView,
@@ -14,7 +14,7 @@ interface RPEPickerProps {
   onChange: (rpe: number | undefined) => void;
 }
 
-// RPE anchor labels per prog_engine.md §4
+// RPE anchor labels
 // These help improve input quality with clear descriptions
 const RPE_VALUES = [
   { value: undefined, label: "Skip", description: "No RPE" },

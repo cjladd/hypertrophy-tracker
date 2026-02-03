@@ -146,7 +146,7 @@ export default function SettingsScreen() {
         <Text style={styles.unitNote}>Kilogram support coming in a future update</Text>
       </View>
 
-      {/* Manage Split Days (split_migration.md §7) */}
+      {/* Manage Split Days */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Training Routine</Text>
         {routine ? (
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   busyText: {
     color: "#444",
   },
-  // Routine styles (split_migration.md §7)
+  // Routine styles
   routineHeader: {
     flexDirection: "row",
     alignItems: "center",
