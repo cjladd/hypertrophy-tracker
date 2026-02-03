@@ -485,6 +485,15 @@ export default function LogWorkoutScreen() {
 
       // Keep weight, reps, and RPE for next set (same exercise pattern)
       setInlineStatus(setType === 'warmup' ? "Warmup logged" : "Set logged");
+
+      // If it was a warmup set, revert to progression suggestion for the working sets
+      if (setType === 'warmup' && currentSuggestion) {
+        setWeight(currentSuggestion.suggestedWeightLb > 0 ? String(currentSuggestion.suggestedWeightLb) : "");
+        const targetReps = currentSuggestion.currentCeiling > 0 ? currentSuggestion.currentCeiling : (currentWorkoutExercise.exercise?.rep_range_max ?? 0);
+        setReps(String(targetReps));
+        setRpe(undefined);
+      }
+
       if (inlineStatusTimeoutRef.current) {
         clearTimeout(inlineStatusTimeoutRef.current);
       }
