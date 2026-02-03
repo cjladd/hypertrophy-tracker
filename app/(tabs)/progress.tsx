@@ -2,9 +2,9 @@
 // Progress Charts screen - Visualize strength progression over time (PRD section 3F, section 5)
 
 import {
-    getExerciseProgressData,
-    getExercisesWithWorkoutCount,
-    type ProgressDataPoint,
+  getExerciseProgressData,
+  getExercisesWithWorkoutCount,
+  type ProgressDataPoint,
 } from "@/lib/repo";
 import type { Exercise, MuscleGroup } from "@/lib/types";
 import { MUSCLE_GROUPS } from "@/lib/types";
@@ -12,13 +12,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Dimensions,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 
@@ -188,12 +188,35 @@ export default function ProgressScreen() {
       ],
     };
 
-    // Calculate min/max for better Y-axis scaling
+    // Calculate min/max for clean Y-axis scaling (multiples of 10, 20, or 50)
     const weights = chartData.map((d) => d.maxWeightLb);
-    const minWeight = Math.min(...weights);
-    const maxWeight = Math.max(...weights);
-    const range = maxWeight - minWeight;
-    const padding = range > 0 ? range * 0.1 : 10;
+    const actualMin = Math.min(...weights);
+    const actualMax = Math.max(...weights);
+    
+    // Determine step size based on range to keep segments reasonable (max ~8-10)
+    const getScale = () => {
+      const diff = actualMax - actualMin;
+      let step = 10;
+      if (diff > 80) step = 20;
+      if (diff > 180) step = 50;
+      if (diff > 450) step = 100;
+
+      let min = Math.floor(actualMin / step) * step;
+      let max = Math.ceil(actualMax / step) * step;
+
+      // Ensure some buffer/range
+      if (min === max) {
+        max += step;
+        if (min >= step) min -= step;
+      } else {
+        // Add one step buffer if points are exactly on the edge? 
+        // Optional, but user asked for increments of 10. Snapping to 10s is usually enough.
+      }
+      
+      return { min, max, segments: (max - min) / step };
+    };
+
+    const { min: chartMin, max: chartMax, segments } = getScale();
 
     return (
       <View style={styles.chartContainer}>
@@ -210,9 +233,11 @@ export default function ProgressScreen() {
           withHorizontalLines={true}
           withDots={true}
           withShadow={false}
-          fromZero={minWeight > padding * 2}
+          fromZero={false}
           yAxisSuffix=" lb"
-          segments={4}
+          segments={segments}
+          yMin={chartMin}
+          yMax={chartMax}
         />
         <View style={styles.chartStats}>
           <View style={styles.statItem}>
