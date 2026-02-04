@@ -4,32 +4,33 @@
 
 import { getRPEColor } from "@/components/RPEPicker";
 import {
-  addSet,
-  deleteSet,
-  deleteWorkout,
-  getExercises,
-  getRoutineDayById,
-  getSetsForWorkoutExercise,
-  getTemplate,
-  getWorkoutExercises,
-  listRecentWorkouts,
-  recomputeProgressionState,
-  updateSet,
-  updateWorkoutNotes
+    addSet,
+    deleteSet,
+    deleteWorkout,
+    getExercises,
+    getRoutineDayById,
+    getSetsForWorkoutExercise,
+    getTemplate,
+    getWorkoutExercises,
+    listRecentWorkouts,
+    recomputeProgressionState,
+    updateSet,
+    updateWorkoutNotes
 } from "@/lib/repo";
 import type { Exercise, Set, Workout, WorkoutExercise } from "@/lib/types";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-  Alert,
-  Keyboard,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Keyboard,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from "react-native";
 
 interface WorkoutExerciseWithSets extends WorkoutExercise {
@@ -592,8 +593,10 @@ export default function HistoryScreen() {
           )}
           {editSetModalVisible && (
             <View style={[StyleSheet.absoluteFill, { zIndex: 100 }]}>
-              <View style={styles.editModalOverlay}>
-                <View style={styles.editModalContent}>
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.editModalOverlay}>
+                  <TouchableWithoutFeedback>
+                    <View style={styles.editModalContent}>
                   <Text style={styles.editModalTitle}>
                     {isAddingSet ? "Add Set" : "Edit Set"}
                   </Text>
@@ -664,9 +667,10 @@ export default function HistoryScreen() {
                         {isAddingSet ? "Add" : "Save"}
                       </Text>
                     </TouchableOpacity>
-                  </View>
+                    </View>
+                  </TouchableWithoutFeedback>
                 </View>
-              </View>
+              </TouchableWithoutFeedback>
             </View>
           )}
         </View>
