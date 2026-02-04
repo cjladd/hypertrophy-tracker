@@ -17,6 +17,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -44,6 +45,7 @@ export default function ProgressScreen() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [filterMuscleGroup, setFilterMuscleGroup] = useState<MuscleGroup | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const selectedExerciseRef = useRef<ExerciseWithCount | null>(null);
 
   useEffect(() => {
@@ -105,10 +107,12 @@ export default function ProgressScreen() {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   };
 
-  // Filter exercises for picker
-  const filteredExercises = filterMuscleGroup
-    ? exercises.filter((e) => e.muscle_group === filterMuscleGroup)
-    : exercises;
+  // Filter exercises for picker (by muscle group and search query)
+  const filteredExercises = exercises.filter((e) => {
+    const matchesMuscleGroup = !filterMuscleGroup || e.muscle_group === filterMuscleGroup;
+    const matchesSearch = !searchQuery || e.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesMuscleGroup && matchesSearch;
+  });
 
   // Prepare chart data
   const getChartConfig = () => ({
@@ -329,6 +333,21 @@ export default function ProgressScreen() {
             <TouchableOpacity onPress={() => setPickerVisible(false)}>
               <Text style={styles.modalClose}>Done</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#8E8E93" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search exercises..."
+              placeholderTextColor="#8E8E93"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
           </View>
 
           {/* Muscle Group Filter */}
@@ -591,6 +610,24 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#007AFF",
     fontWeight: "600",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E5E5EA",
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
+    color: "#1c1c1e",
   },
   filterScroll: {
     backgroundColor: "#fff",
