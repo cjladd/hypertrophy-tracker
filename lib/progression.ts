@@ -3,11 +3,11 @@
 // Deterministic rules that map logged sets -> next-session suggestion
 
 import type {
-  Exercise,
-  ProgressionReasonCode,
-  ProgressionState,
-  ProgressionSuggestion,
-  Set,
+    Exercise,
+    ProgressionReasonCode,
+    ProgressionState,
+    ProgressionSuggestion,
+    Set,
 } from './types';
 
 // ============================================================================
@@ -85,7 +85,13 @@ export function evaluateSuccess(
   // This prevents crashing if user only did light work
   const efficientSets = workingSets.length > 0 ? workingSets : sets;
 
-  const topSet = efficientSets[0];
+  // Find the heaviest set (by weight, then by reps if tied)
+  const topSet = efficientSets.reduce((best, current) => {
+    if (current.weight_lb > best.weight_lb) return current;
+    if (current.weight_lb === best.weight_lb && current.reps > best.reps) return current;
+    return best;
+  }, efficientSets[0]);
+
   const hasBackoff = efficientSets.length >= 2;
   const topReps = topSet.reps;
   const imputedRpe = imputeRPE(topSet);
