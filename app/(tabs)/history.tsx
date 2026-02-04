@@ -668,6 +668,7 @@ export default function HistoryScreen() {
                       </Text>
                     </TouchableOpacity>
                     </View>
+                    </View>
                   </TouchableWithoutFeedback>
                 </View>
               </TouchableWithoutFeedback>
