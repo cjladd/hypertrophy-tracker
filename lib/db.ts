@@ -199,6 +199,106 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_routine_days_routine ON routine_days(routine_id);
     `);
 
+    // =========================================================================
+    // AI tables (Phase 0) — no existing tables modified
+    // =========================================================================
+
+    // Health samples from HealthKit / Health Connect / manual entry
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS health_samples (
+        id TEXT PRIMARY KEY,
+        sample_type TEXT NOT NULL,
+        value REAL NOT NULL,
+        recorded_at INTEGER NOT NULL,
+        source TEXT NOT NULL DEFAULT 'manual',
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      );
+    `);
+
+    // Cached recovery scores per muscle group (ONNX model output or heuristic)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS recovery_scores (
+        id TEXT PRIMARY KEY,
+        muscle_group TEXT NOT NULL,
+        score REAL NOT NULL,
+        model_version TEXT NOT NULL DEFAULT 'heuristic',
+        computed_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
+    `);
+
+    // Detected anomalies (strength drops, overtraining signals, etc.)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS anomaly_log (
+        id TEXT PRIMARY KEY,
+        exercise_id TEXT,
+        muscle_group TEXT,
+        anomaly_type TEXT NOT NULL,
+        severity TEXT NOT NULL DEFAULT 'low',
+        details TEXT NOT NULL DEFAULT '{}',
+        detected_at INTEGER NOT NULL,
+        dismissed_at INTEGER,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Generated coaching insights (template or LLM)
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS ai_insights (
+        id TEXT PRIMARY KEY,
+        insight_type TEXT NOT NULL,
+        muscle_group TEXT,
+        exercise_id TEXT,
+        content TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'template',
+        generated_at INTEGER NOT NULL,
+        dismissed_at INTEGER,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Adaptive program adjustment suggestions
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS program_adjustments (
+        id TEXT PRIMARY KEY,
+        adjustment_type TEXT NOT NULL,
+        target_id TEXT,
+        target_type TEXT,
+        reasoning TEXT NOT NULL,
+        parameters TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'pending',
+        suggested_at INTEGER NOT NULL,
+        responded_at INTEGER
+      );
+    `);
+
+    // Single-row AI feature flags and model state
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS ai_settings (
+        id TEXT PRIMARY KEY DEFAULT 'singleton',
+        ai_suggestions_enabled INTEGER NOT NULL DEFAULT 1,
+        recovery_scores_enabled INTEGER NOT NULL DEFAULT 1,
+        anomaly_detection_enabled INTEGER NOT NULL DEFAULT 1,
+        adaptive_programming_enabled INTEGER NOT NULL DEFAULT 0,
+        coaching_insights_enabled INTEGER NOT NULL DEFAULT 1,
+        llm_enabled INTEGER NOT NULL DEFAULT 0,
+        llm_model_path TEXT,
+        llm_downloaded_at INTEGER,
+        health_integration_enabled INTEGER NOT NULL DEFAULT 0,
+        health_permissions_granted INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      );
+    `);
+
+    // AI table indexes
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_health_samples_type_recorded ON health_samples(sample_type, recorded_at);
+      CREATE INDEX IF NOT EXISTS idx_recovery_scores_muscle ON recovery_scores(muscle_group, computed_at);
+      CREATE INDEX IF NOT EXISTS idx_anomaly_log_dismissed ON anomaly_log(dismissed_at, detected_at);
+      CREATE INDEX IF NOT EXISTS idx_ai_insights_generated ON ai_insights(generated_at);
+      CREATE INDEX IF NOT EXISTS idx_program_adjustments_status ON program_adjustments(status, suggested_at);
+    `);
+
     console.log('Database tables initialized successfully');
   } catch (error) {
     console.error('Failed to create tables:', error);
@@ -219,6 +319,12 @@ export async function resetDB(): Promise<void> {
       DROP TABLE IF EXISTS workouts;
       DROP TABLE IF EXISTS templates;
       DROP TABLE IF EXISTS exercises;
+      DROP TABLE IF EXISTS health_samples;
+      DROP TABLE IF EXISTS recovery_scores;
+      DROP TABLE IF EXISTS anomaly_log;
+      DROP TABLE IF EXISTS ai_insights;
+      DROP TABLE IF EXISTS program_adjustments;
+      DROP TABLE IF EXISTS ai_settings;
     `);
     await initializeTables(db);
     console.log('Database reset successfully');
