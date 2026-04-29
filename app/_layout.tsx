@@ -1,3 +1,4 @@
+import { AIProvider } from "@/context/AIContext";
 import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
@@ -59,14 +60,16 @@ export default function RootLayout() {
       <StatusBar barStyle="dark-content" />
       <SafeAreaProvider>
         <SettingsProvider>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-          >
-            <View style={{ flex: 1 }}>
-              <RootNavigator />
-            </View>
-          </KeyboardAvoidingView>
+          <AIProvider>
+            <KeyboardAvoidingView
+              style={{ flex: 1 }}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <View style={{ flex: 1 }}>
+                <RootNavigator />
+              </View>
+            </KeyboardAvoidingView>
+          </AIProvider>
         </SettingsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

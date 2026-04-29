@@ -8,6 +8,12 @@ type Settings = {
   weightJumpLb: number; // default 5 per PRD §3G
   hasCompletedOnboarding: boolean; // Feature 1: first-launch detection
   activeRoutineId: string | null; // Feature 2: selected routine
+  // AI feature toggles (Phase 0)
+  aiSuggestionsEnabled: boolean;
+  recoveryScoresEnabled: boolean;
+  anomalyDetectionEnabled: boolean;
+  adaptiveProgrammingEnabled: boolean;
+  coachingInsightsEnabled: boolean;
 };
 
 type Ctx = Settings & {
@@ -15,6 +21,11 @@ type Ctx = Settings & {
   completeOnboarding: () => void;
   resetOnboarding: () => void; // Dev tool: show welcome screen again
   setActiveRoutineId: (id: string | null) => void;
+  setAISuggestionsEnabled: (v: boolean) => void;
+  setRecoveryScoresEnabled: (v: boolean) => void;
+  setAnomalyDetectionEnabled: (v: boolean) => void;
+  setAdaptiveProgrammingEnabled: (v: boolean) => void;
+  setCoachingInsightsEnabled: (v: boolean) => void;
   isLoading: boolean; // Prevent flash of wrong screen
 };
 
@@ -22,6 +33,11 @@ const DEFAULTS: Settings = {
   ...REPO_DEFAULTS,
   hasCompletedOnboarding: false,
   activeRoutineId: null,
+  aiSuggestionsEnabled: true,
+  recoveryScoresEnabled: true,
+  anomalyDetectionEnabled: true,
+  adaptiveProgrammingEnabled: false,
+  coachingInsightsEnabled: true,
 };
 
 // Key imported from repo to avoid redundancy
@@ -55,6 +71,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     completeOnboarding: () => setState((s) => ({ ...s, hasCompletedOnboarding: true })),
     resetOnboarding: () => setState((s) => ({ ...s, hasCompletedOnboarding: false })),
     setActiveRoutineId: (id) => setState((s) => ({ ...s, activeRoutineId: id })),
+    setAISuggestionsEnabled: (v) => setState((s) => ({ ...s, aiSuggestionsEnabled: v })),
+    setRecoveryScoresEnabled: (v) => setState((s) => ({ ...s, recoveryScoresEnabled: v })),
+    setAnomalyDetectionEnabled: (v) => setState((s) => ({ ...s, anomalyDetectionEnabled: v })),
+    setAdaptiveProgrammingEnabled: (v) => setState((s) => ({ ...s, adaptiveProgrammingEnabled: v })),
+    setCoachingInsightsEnabled: (v) => setState((s) => ({ ...s, coachingInsightsEnabled: v })),
   };
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
