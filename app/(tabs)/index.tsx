@@ -1,3 +1,5 @@
+import AnomalyCard from "@/components/AnomalyCard";
+import { useAI } from "@/context/AIContext";
 import { getActiveWorkoutForResume, listRecentWorkouts } from "@/lib/repo";
 import type { Workout } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -5,6 +7,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
+  const { anomalies, dismissAnomaly } = useAI();
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +111,24 @@ export default function Index() {
           <Text style={styles.statLabel}>This Week</Text>
         </View>
       </View>
+
+      {/* Training Alerts */}
+      {anomalies.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Training Alerts</Text>
+            <View style={styles.alertBadge}>
+              <Text style={styles.alertBadgeText}>{anomalies.length}</Text>
+            </View>
+          </View>
+          {anomalies.slice(0, 3).map((a) => (
+            <AnomalyCard key={a.id} anomaly={a} onDismiss={dismissAnomaly} />
+          ))}
+          {anomalies.length > 3 && (
+            <Text style={styles.moreAlertsText}>+{anomalies.length - 3} more alerts</Text>
+          )}
+        </View>
+      )}
 
       {/* Recent Workouts */}
       <View style={styles.section}>
@@ -290,6 +311,25 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     color: "#bbb",
+  },
+  alertBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  alertBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  moreAlertsText: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    paddingTop: 4,
   },
   workoutItem: {
     paddingVertical: 12,
