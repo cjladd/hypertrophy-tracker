@@ -2,6 +2,7 @@
 // Provides AI state (recovery scores, anomalies, suggestions, insights) to all screens.
 // Phase 0 shell: loads data from SQLite; actual model inference added in later phases.
 
+import { runAllAnomalyDetection } from '@/lib/ai/anomaly';
 import {
   computeAndCacheAllRecoveryScores,
 } from '@/lib/ai/features';
@@ -18,6 +19,7 @@ import type {
   CoachingInsight,
   RecoveryScore,
 } from '@/lib/ai/types';
+import { useSettings } from '@/context/SettingsContext';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 // =============================================================================
@@ -59,6 +61,7 @@ export function useAI(): AIContextValue {
 // =============================================================================
 
 export function AIProvider({ children }: { children: ReactNode }) {
+  const { anomalyDetectionEnabled } = useSettings();
   const [recoveryScores, setRecoveryScores] = useState<RecoveryScore[]>([]);
   const [anomalies, setAnomalies] = useState<AnomalyAlert[]>([]);
   const [suggestions, setSuggestions] = useState<AdaptiveSuggestion[]>([]);
@@ -67,13 +70,14 @@ export function AIProvider({ children }: { children: ReactNode }) {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
 
   // ---------------------------------------------------------------------------
-  // Core refresh: recompute heuristic scores, then load all AI state from DB
+  // Core refresh: recompute heuristic scores, run detectors, load AI state
   // ---------------------------------------------------------------------------
   const refresh = useCallback(async () => {
     try {
-      // Recompute heuristic recovery scores for all muscle groups.
-      // This is fast (pure SQL + arithmetic, no ONNX yet) and idempotent.
       await computeAndCacheAllRecoveryScores();
+      if (anomalyDetectionEnabled) {
+        await runAllAnomalyDetection();
+      }
 
       const [scores, activeAnomalies, pending, insights] = await Promise.all([
         getAllRecoveryScores(),
@@ -90,7 +94,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.warn('AIContext refresh failed:', e);
     }
-  }, []);
+  }, [anomalyDetectionEnabled]);
 
   // Initial load on mount
   useEffect(() => {
