@@ -5,6 +5,7 @@
 
 import ExercisePicker from "@/components/ExercisePicker";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
+import { generatePostWorkoutInsight } from "@/lib/ai/coaching";
 import { useSettings } from "@/context/SettingsContext";
 import {
     addSet,
@@ -843,8 +844,8 @@ export default function LogWorkoutScreen() {
           onPress: async () => {
             try {
               await finishWorkout(workoutId);
-              // Update progression state for all exercises in this workout
               await updateProgressionAfterWorkout(workoutId);
+              generatePostWorkoutInsight(workoutId).catch(() => {});
               await promptSaveAsTemplate();
             } catch {
               Alert.alert("Error", "Failed to finish workout");
