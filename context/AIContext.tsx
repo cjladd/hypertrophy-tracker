@@ -3,10 +3,12 @@
 // Phase 0 shell: loads data from SQLite; actual model inference added in later phases.
 
 import { runAllAnomalyDetection } from '@/lib/ai/anomaly';
+import { generateDailyInsight, generateWeeklyInsight } from '@/lib/ai/coaching';
 import {
   computeAndCacheAllRecoveryScores,
 } from '@/lib/ai/features';
 import {
+  dismissInsight,
   getActiveAnomalies,
   getAllRecoveryScores,
   getPendingAdjustments,
@@ -40,6 +42,7 @@ type AIContextValue = {
   // Actions
   refresh: () => Promise<void>;
   dismissAnomaly: (id: string) => void;
+  dismissInsight: (id: string) => void;
   acceptSuggestion: (id: string) => Promise<void>;
   rejectSuggestion: (id: string) => Promise<void>;
 };
@@ -61,7 +64,7 @@ export function useAI(): AIContextValue {
 // =============================================================================
 
 export function AIProvider({ children }: { children: ReactNode }) {
-  const { anomalyDetectionEnabled } = useSettings();
+  const { anomalyDetectionEnabled, coachingInsightsEnabled } = useSettings();
   const [recoveryScores, setRecoveryScores] = useState<RecoveryScore[]>([]);
   const [anomalies, setAnomalies] = useState<AnomalyAlert[]>([]);
   const [suggestions, setSuggestions] = useState<AdaptiveSuggestion[]>([]);
@@ -77,6 +80,10 @@ export function AIProvider({ children }: { children: ReactNode }) {
       await computeAndCacheAllRecoveryScores();
       if (anomalyDetectionEnabled) {
         await runAllAnomalyDetection();
+      }
+      if (coachingInsightsEnabled) {
+        await generateDailyInsight();
+        await generateWeeklyInsight();
       }
 
       const [scores, activeAnomalies, pending, insights] = await Promise.all([
@@ -94,7 +101,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.warn('AIContext refresh failed:', e);
     }
-  }, [anomalyDetectionEnabled]);
+  }, [anomalyDetectionEnabled, coachingInsightsEnabled]);
 
   // Initial load on mount
   useEffect(() => {
@@ -110,10 +117,13 @@ export function AIProvider({ children }: { children: ReactNode }) {
   // ---------------------------------------------------------------------------
 
   const handleDismissAnomaly = useCallback((id: string) => {
-    // Optimistic update — remove from UI immediately
     setAnomalies((prev) => prev.filter((a) => a.id !== id));
-    // Persist asynchronously (fire-and-forget; next refresh will sync)
     import('@/lib/ai/repo').then(({ dismissAnomaly }) => dismissAnomaly(id)).catch(() => {});
+  }, []);
+
+  const handleDismissInsight = useCallback((id: string) => {
+    setLatestInsight((prev) => (prev?.id === id ? null : prev));
+    dismissInsight(id).catch(() => {});
   }, []);
 
   const handleAcceptSuggestion = useCallback(async (id: string) => {
@@ -139,6 +149,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     lastRefreshedAt,
     refresh,
     dismissAnomaly: handleDismissAnomaly,
+    dismissInsight: handleDismissInsight,
     acceptSuggestion: handleAcceptSuggestion,
     rejectSuggestion: handleRejectSuggestion,
   };
