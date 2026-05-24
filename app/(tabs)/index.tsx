@@ -1,4 +1,5 @@
 import AnomalyCard from "@/components/AnomalyCard";
+import CoachingCard from "@/components/CoachingCard";
 import { useAI } from "@/context/AIContext";
 import { getActiveWorkoutForResume, listRecentWorkouts } from "@/lib/repo";
 import type { Workout } from "@/lib/types";
@@ -7,7 +8,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
-  const { anomalies, dismissAnomaly } = useAI();
+  const { anomalies, dismissAnomaly, latestInsight, dismissInsight } = useAI();
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +112,11 @@ export default function Index() {
           <Text style={styles.statLabel}>This Week</Text>
         </View>
       </View>
+
+      {/* Coaching Insight */}
+      {latestInsight && (
+        <CoachingCard insight={latestInsight} onDismiss={dismissInsight} />
+      )}
 
       {/* Training Alerts */}
       {anomalies.length > 0 && (
