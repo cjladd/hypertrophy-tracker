@@ -7,12 +7,15 @@ import { generateDailyInsight, generateWeeklyInsight } from '@/lib/ai/coaching';
 import {
   computeAndCacheAllRecoveryScores,
 } from '@/lib/ai/features';
+import { syncHealthData } from '@/lib/ai/health-sync';
 import {
   dismissInsight,
+  getAISettings,
   getActiveAnomalies,
   getAllRecoveryScores,
   getPendingAdjustments,
   getRecentInsights,
+  patchAISettings,
   updateAdjustmentStatus,
 } from '@/lib/ai/repo';
 import type {
@@ -22,7 +25,8 @@ import type {
   RecoveryScore,
 } from '@/lib/ai/types';
 import { useSettings } from '@/context/SettingsContext';
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 // =============================================================================
 // Context shape
@@ -35,6 +39,11 @@ type AIContextValue = {
   suggestions: AdaptiveSuggestion[];
   latestInsight: CoachingInsight | null;
 
+  // Health integration
+  healthEnabled: boolean;
+  healthPermissionsGranted: boolean;
+  healthLastSyncAt: number | null;
+
   // Status
   isLoading: boolean;
   lastRefreshedAt: number | null;
@@ -45,6 +54,8 @@ type AIContextValue = {
   dismissInsight: (id: string) => void;
   acceptSuggestion: (id: string) => Promise<void>;
   rejectSuggestion: (id: string) => Promise<void>;
+  enableHealthIntegration: () => Promise<void>;
+  disableHealthIntegration: () => Promise<void>;
 };
 
 // =============================================================================
@@ -71,6 +82,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
   const [latestInsight, setLatestInsight] = useState<CoachingInsight | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+
+  // Health state (loaded from ai_settings SQLite, not AsyncStorage)
+  const [healthEnabled, setHealthEnabled] = useState(false);
+  const [healthPermissionsGranted, setHealthPermissionsGranted] = useState(false);
+  const [healthLastSyncAt, setHealthLastSyncAt] = useState<number | null>(null);
 
   // ---------------------------------------------------------------------------
   // Core refresh: recompute heuristic scores, run detectors, load AI state
@@ -103,14 +119,37 @@ export function AIProvider({ children }: { children: ReactNode }) {
     }
   }, [anomalyDetectionEnabled, coachingInsightsEnabled]);
 
-  // Initial load on mount
+  // Initial load on mount — also loads health settings
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      await refresh();
+      const [, aiSettings] = await Promise.all([
+        refresh(),
+        getAISettings(),
+      ]);
+      setHealthEnabled(aiSettings.health_integration_enabled);
+      setHealthPermissionsGranted(aiSettings.health_permissions_granted);
       setIsLoading(false);
     })();
   }, [refresh]);
+
+  // ---------------------------------------------------------------------------
+  // Foreground health sync — fires when app returns to foreground
+  // ---------------------------------------------------------------------------
+  const appStateRef = useRef(AppState.currentState);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const wasBackground = appStateRef.current.match(/inactive|background/);
+      appStateRef.current = nextState;
+      if (wasBackground && nextState === 'active' && healthEnabled && healthPermissionsGranted) {
+        syncHealthData()
+          .then(() => setHealthLastSyncAt(Date.now()))
+          .catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [healthEnabled, healthPermissionsGranted]);
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -136,6 +175,20 @@ export function AIProvider({ children }: { children: ReactNode }) {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
+  const handleEnableHealthIntegration = useCallback(async () => {
+    await patchAISettings({ health_integration_enabled: true, health_permissions_granted: true });
+    setHealthEnabled(true);
+    setHealthPermissionsGranted(true);
+    syncHealthData()
+      .then(() => setHealthLastSyncAt(Date.now()))
+      .catch(() => {});
+  }, []);
+
+  const handleDisableHealthIntegration = useCallback(async () => {
+    await patchAISettings({ health_integration_enabled: false });
+    setHealthEnabled(false);
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Provide
   // ---------------------------------------------------------------------------
@@ -145,6 +198,9 @@ export function AIProvider({ children }: { children: ReactNode }) {
     anomalies,
     suggestions,
     latestInsight,
+    healthEnabled,
+    healthPermissionsGranted,
+    healthLastSyncAt,
     isLoading,
     lastRefreshedAt,
     refresh,
@@ -152,6 +208,8 @@ export function AIProvider({ children }: { children: ReactNode }) {
     dismissInsight: handleDismissInsight,
     acceptSuggestion: handleAcceptSuggestion,
     rejectSuggestion: handleRejectSuggestion,
+    enableHealthIntegration: handleEnableHealthIntegration,
+    disableHealthIntegration: handleDisableHealthIntegration,
   };
 
   return <AIContext.Provider value={value}>{children}</AIContext.Provider>;

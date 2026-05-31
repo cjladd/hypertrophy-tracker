@@ -1,5 +1,7 @@
+import { useAI } from "@/context/AIContext";
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
+import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -8,8 +10,10 @@ import {
     ActivityIndicator,
     Alert,
     Keyboard,
+    Platform,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
@@ -18,8 +22,16 @@ import {
 
 export default function SettingsScreen() {
   const { weightJumpLb, setWeightJumpLb, activeRoutineId, resetOnboarding } = useSettings();
+  const {
+    healthEnabled,
+    healthLastSyncAt,
+    enableHealthIntegration,
+    disableHealthIntegration,
+  } = useAI();
   const [localWeightJump, setLocalWeightJump] = useState(String(weightJumpLb));
   const [busy, setBusy] = useState(false);
+  const [healthBusy, setHealthBusy] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<HealthSyncStatus | null>(null);
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [routineDays, setRoutineDays] = useState<RoutineDay[]>([]);
 
@@ -44,6 +56,35 @@ export default function SettingsScreen() {
       loadRoutineData();
     }, [activeRoutineId])
   );
+
+  // Reload sync status whenever this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS === 'ios') {
+        getHealthSyncStatus().then(setSyncStatus).catch(() => {});
+      }
+    }, [healthLastSyncAt])
+  );
+
+  const handleHealthToggle = async (value: boolean) => {
+    if (value) {
+      setHealthBusy(true);
+      const granted = await requestHealthPermissions();
+      if (granted) {
+        await enableHealthIntegration();
+        const status = await getHealthSyncStatus().catch(() => null);
+        if (status) setSyncStatus(status);
+      } else {
+        Alert.alert(
+          'Permission Required',
+          'Health access was not granted. Go to Settings > Privacy > Health to enable it for Hypertrophy Helper.',
+        );
+      }
+      setHealthBusy(false);
+    } else {
+      await disableHealthIntegration();
+    }
+  };
 
   const saveWeightJump = () => {
     const num = parseInt(localWeightJump, 10);
@@ -101,6 +142,15 @@ export default function SettingsScreen() {
     setWeightJumpLb(5);
     Alert.alert("Reset", "Settings restored to defaults.");
   };
+
+  function formatSyncTime(ts: number): string {
+    const diffMin = Math.floor((Date.now() - ts) / 60_000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  }
 
   return (
     <ScrollView
@@ -182,6 +232,67 @@ export default function SettingsScreen() {
           </>
         )}
       </View>
+
+      {Platform.OS === 'ios' && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Health Integration</Text>
+          <View style={styles.healthToggleRow}>
+            <View style={styles.healthToggleInfo}>
+              <Text style={styles.label}>Connect Apple Health</Text>
+              <Text style={styles.healthSubtext}>
+                HRV, resting heart rate, and sleep improve recovery scores
+              </Text>
+            </View>
+            {healthBusy ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Switch
+                value={healthEnabled}
+                onValueChange={handleHealthToggle}
+                trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+              />
+            )}
+          </View>
+
+          {healthEnabled && syncStatus && (
+            <View style={styles.healthStatus}>
+              <Text style={styles.healthStatusTitle}>Latest readings</Text>
+              <View style={styles.healthDataRow}>
+                <Text style={styles.healthDataLabel}>HRV</Text>
+                <Text style={styles.healthDataValue}>
+                  {syncStatus.latestHRV != null ? `${Math.round(syncStatus.latestHRV)} ms` : '—'}
+                </Text>
+              </View>
+              <View style={styles.healthDataRow}>
+                <Text style={styles.healthDataLabel}>Resting HR</Text>
+                <Text style={styles.healthDataValue}>
+                  {syncStatus.latestHR != null ? `${Math.round(syncStatus.latestHR)} bpm` : '—'}
+                </Text>
+              </View>
+              <View style={styles.healthDataRow}>
+                <Text style={styles.healthDataLabel}>Avg Sleep (7d)</Text>
+                <Text style={styles.healthDataValue}>
+                  {syncStatus.avgSleepHours != null
+                    ? `${syncStatus.avgSleepHours.toFixed(1)} h`
+                    : '—'}
+                </Text>
+              </View>
+              {syncStatus.lastSyncAt && (
+                <Text style={styles.healthSyncTime}>
+                  Last synced{' '}
+                  {formatSyncTime(syncStatus.lastSyncAt)}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {healthEnabled && !syncStatus?.lastSyncAt && (
+            <Text style={styles.healthSubtext} numberOfLines={2}>
+              No health data yet. Bring the app to the foreground to trigger a sync.
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Dev tools</Text>
@@ -461,5 +572,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#8E8E93",
     fontStyle: "italic",
+  },
+  healthToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  healthToggleInfo: {
+    flex: 1,
+    gap: 3,
+  },
+  healthSubtext: {
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+  healthStatus: {
+    backgroundColor: '#F2F9FF',
+    borderRadius: 8,
+    padding: 12,
+    gap: 6,
+  },
+  healthStatusTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  healthDataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  healthDataLabel: {
+    fontSize: 14,
+    color: '#444',
+  },
+  healthDataValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111',
+  },
+  healthSyncTime: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginTop: 4,
   },
 });

@@ -9,7 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cjladd.hypertrophyhelper",
+      "teamId": "5XKGN89TY8",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "Hypertrophy Helper reads your HRV, resting heart rate, and sleep data to compute muscle recovery scores."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +33,7 @@
     },
     "plugins": [
       "expo-router",
+      "react-native-health",
       [
         "expo-splash-screen",
         {
