@@ -69,18 +69,23 @@ export default function SettingsScreen() {
   const handleHealthToggle = async (value: boolean) => {
     if (value) {
       setHealthBusy(true);
-      const granted = await requestHealthPermissions();
-      if (granted) {
-        await enableHealthIntegration();
-        const status = await getHealthSyncStatus().catch(() => null);
-        if (status) setSyncStatus(status);
-      } else {
-        Alert.alert(
-          'Permission Required',
-          'Health access was not granted. Go to Settings > Privacy > Health to enable it for Hypertrophy Helper.',
-        );
+      try {
+        const { granted, error } = await requestHealthPermissions();
+        if (granted) {
+          await enableHealthIntegration();
+          const status = await getHealthSyncStatus().catch(() => null);
+          if (status) setSyncStatus(status);
+        } else {
+          Alert.alert(
+            'Health Connection Failed',
+            error ?? 'Health access was not granted. Go to Settings > Privacy > Health to enable it for Hypertrophy Helper.',
+          );
+        }
+      } catch (e: any) {
+        Alert.alert('Health Connection Error', String(e?.message ?? e));
+      } finally {
+        setHealthBusy(false);
       }
-      setHealthBusy(false);
     } else {
       await disableHealthIntegration();
     }
