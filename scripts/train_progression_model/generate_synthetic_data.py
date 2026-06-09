@@ -401,7 +401,8 @@ def label_rows(lifter: Lifter, sessions: list[Session], vol_history):
             "recovery_score": s.recovery_score,
             "action": action,
             "weight_delta_lb": weight_delta,
-            # metadata (audit only; trainer drops these)
+            # metadata (audit / baseline only; trainer drops these from the feature matrix)
+            "base_action": base,   # raw rule-engine action -> the baseline the model must beat
             "training_age": lifter.training_age,
             "goal": lifter.goal,
             "exercise_type": lifter.exercise_type,
@@ -498,7 +499,7 @@ def main():
     rows = rows[: args.rows]
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    cols = FEATURE_COLS + ["action", "weight_delta_lb", "training_age", "goal", "exercise_type"]
+    cols = FEATURE_COLS + ["action", "weight_delta_lb", "base_action", "training_age", "goal", "exercise_type"]
     with open(args.out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
