@@ -49,7 +49,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-asset",
+      "onnxruntime-react-native"
     ],
     "experiments": {
       "typedRoutes": true

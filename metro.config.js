@@ -7,6 +7,11 @@ if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
+// Allow bundling `.onnx` model files as assets (ONNX Runtime, Phase 1+).
+if (!config.resolver.assetExts.includes('onnx')) {
+  config.resolver.assetExts.push('onnx');
+}
+
 // Add COEP and COOP headers to support SharedArrayBuffer for expo-sqlite on web
 config.server.enhanceMiddleware = (middleware) => {
   return (req, res, next) => {

@@ -2,6 +2,7 @@ import { useAI } from "@/context/AIContext";
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
 import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
+import { testOnnxRuntime } from "@/lib/ai/model-manager";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -146,6 +147,18 @@ export default function SettingsScreen() {
     setLocalWeightJump("5");
     setWeightJumpLb(5);
     Alert.alert("Reset", "Settings restored to defaults.");
+  };
+
+  const handleTestOnnx = async () => {
+    setBusy(true);
+    try {
+      const result = await testOnnxRuntime();
+      Alert.alert(result.ok ? "ONNX Runtime OK" : "ONNX Runtime failed", result.message);
+    } catch (e: any) {
+      Alert.alert("ONNX Runtime error", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   function formatSyncTime(ts: number): string {
@@ -316,6 +329,15 @@ export default function SettingsScreen() {
           disabled={busy}
         >
           <Text style={styles.secondaryText}>Reseed default exercises</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleTestOnnx}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Test ONNX Runtime</Text>
+          <Text style={styles.destructiveSubtext}>Loads the dummy model and runs one inference on-device</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
