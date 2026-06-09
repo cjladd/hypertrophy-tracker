@@ -19,6 +19,12 @@ ios/Pods/
 ios/build/
 
 
+# Python / ML training pipeline (generated data + intermediate artifacts; final .onnx is committed under assets/models/)
+__pycache__/
+*.pyc
+scripts/**/data/
+scripts/**/*.pkl
+
 # Env & secrets
 .env
 .env.*
