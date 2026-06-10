@@ -2,7 +2,7 @@ import { useAI } from "@/context/AIContext";
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
 import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
-import { testOnnxRuntime } from "@/lib/ai/model-manager";
+import { testOnnxRuntime, testProgressionModel } from "@/lib/ai/model-manager";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -156,6 +156,18 @@ export default function SettingsScreen() {
       Alert.alert(result.ok ? "ONNX Runtime OK" : "ONNX Runtime failed", result.message);
     } catch (e: any) {
       Alert.alert("ONNX Runtime error", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleTestProgressionModel = async () => {
+    setBusy(true);
+    try {
+      const result = await testProgressionModel();
+      Alert.alert(result.ok ? "Progression Model OK" : "Progression Model failed", result.message);
+    } catch (e: any) {
+      Alert.alert("Progression Model error", String(e?.message ?? e));
     } finally {
       setBusy(false);
     }
@@ -338,6 +350,15 @@ export default function SettingsScreen() {
         >
           <Text style={styles.secondaryText}>Test ONNX Runtime</Text>
           <Text style={styles.destructiveSubtext}>Loads the dummy model and runs one inference on-device</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleTestProgressionModel}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Test Progression Model</Text>
+          <Text style={styles.destructiveSubtext}>Runs the trained progression_v1 classifier on a sample state</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
