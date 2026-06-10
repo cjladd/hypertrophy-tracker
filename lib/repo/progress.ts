@@ -3,6 +3,7 @@ import { getDB } from '../db';
 import { ExposureData, generateSuggestion, getInitialProgressionState, processExposure } from '../progression';
 import { all, get, run } from '../sql';
 import { Exercise, ProgressionState, ProgressionSuggestion, Set, Settings } from '../types';
+import { getAIProgressionSuggestion } from '../ai/progression-ai';
 import { getSettings } from './settings';
 
 // ============================================
@@ -210,7 +211,16 @@ export async function getProgressionSuggestion(exerciseId: string, settings?: Se
     state = await getProgressionState(exerciseId);
   }
 
-  return generateSuggestion(exercise, state, lastSets, effectiveSettings.weightJumpLb);
+  const ruleSuggestion = generateSuggestion(exercise, state, lastSets, effectiveSettings.weightJumpLb);
+
+  // AI override (full-trust, gated by aiSuggestionsEnabled). Falls back to the rule engine
+  // for first-time exercises, low confidence, or any runtime failure. Never mutates cached
+  // progression_state — that stays rule-engine-derived and recomputable from history.
+  if (effectiveSettings.aiSuggestionsEnabled !== false && ruleSuggestion.reasonCode !== 'FIRST_TIME') {
+    const aiSuggestion = await getAIProgressionSuggestion(exercise, state, effectiveSettings.weightJumpLb);
+    if (aiSuggestion) return aiSuggestion;
+  }
+  return ruleSuggestion;
 }
 
 /**

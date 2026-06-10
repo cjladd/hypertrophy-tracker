@@ -126,6 +126,8 @@ export interface ProgressionSuggestion {
   currentCeiling: number;       // May be > repRangeMax if expanded
   reasonCode: ProgressionReasonCode;
   reasonMessage: string;        // Human-readable explanation
+  source?: 'ai' | 'rule_engine'; // which engine produced this (default: rule_engine)
+  confidence?: number;           // model confidence 0–1 when source === 'ai'
 }
 
 // Extended types for UI
@@ -150,6 +152,9 @@ export interface ExerciseHistory {
 // Settings types per PRD §3G
 export interface Settings {
   weightJumpLb: number; // default 5
+  // Mirrors the AsyncStorage settings blob written by SettingsContext (same SETTINGS_KEY).
+  // Present at runtime via getSettings() spread; typed here so the repo layer can read it.
+  aiSuggestionsEnabled?: boolean; // default true
 }
 
 // Template grouped by routine for UI display

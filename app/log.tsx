@@ -1136,7 +1136,9 @@ export default function LogWorkoutScreen() {
             {currentSuggestion && currentWorkoutExercise?.sets.length === 0 && (
               <View style={styles.suggestionContainer}>
                 <Text style={{ fontSize: 10, color: '#1565C0', opacity: 0.8, marginBottom: 4, textTransform: 'uppercase', fontWeight: 'bold' }}>
-                  Recommended by Progression Engine
+                  {currentSuggestion.source === 'ai'
+                    ? `Recommended by AI Coach${currentSuggestion.confidence ? ` · ${Math.round(currentSuggestion.confidence * 100)}%` : ''}`
+                    : 'Recommended by Progression Engine'}
                 </Text>
                 <Text style={styles.suggestionText}>
                   {currentSuggestion.reasonMessage}
