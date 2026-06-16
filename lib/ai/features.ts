@@ -462,6 +462,29 @@ const RECOVERY_FEATURE_ORDER: (keyof RecoveryFeatureVector)[] = [
 ];
 
 /**
+ * Dev diagnostic: for every muscle group, returns the live RecoveryFeatureVector
+ * alongside both the ONNX model score and the heuristic score. Lets us see, on real
+ * data, whether a surprising score comes from the features, the model, or the heuristic.
+ */
+export async function debugRecoveryBreakdown(): Promise<
+  { muscle: MuscleGroup; model: number | null; heuristic: number; vec: RecoveryFeatureVector }[]
+> {
+  const out: { muscle: MuscleGroup; model: number | null; heuristic: number; vec: RecoveryFeatureVector }[] = [];
+  for (const muscleGroup of ALL_MUSCLE_GROUPS) {
+    const vec = await buildRecoveryFeatureVector(muscleGroup);
+    const heuristic = computeHeuristicRecoveryScore(vec);
+    let model: number | null = null;
+    try {
+      model = await runRecoveryInference(RECOVERY_FEATURE_ORDER.map((k) => vec[k]));
+    } catch {
+      model = null;
+    }
+    out.push({ muscle: muscleGroup, model, heuristic, vec });
+  }
+  return out;
+}
+
+/**
  * Computes and caches recovery scores for all 12 muscle groups (Phase 4).
  * Tries the ONNX recovery model first (model_version 'onnx_v1'); on any failure
  * (web, model unloadable, etc.) falls back to the heuristic ('heuristic').

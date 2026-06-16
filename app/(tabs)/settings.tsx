@@ -3,6 +3,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
 import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
 import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
+import { debugRecoveryBreakdown } from "@/lib/ai/features";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -187,6 +188,36 @@ export default function SettingsScreen() {
       Alert.alert(result.ok ? "Recovery Model OK" : "Recovery Model failed", result.message);
     } catch (e: any) {
       Alert.alert("Recovery Model error", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRecoveryBreakdown = async () => {
+    setBusy(true);
+    try {
+      const rows = await debugRecoveryBreakdown();
+      // Full detail to the Metro console for the record.
+      console.log('[recovery breakdown]', JSON.stringify(rows, null, 2));
+      // Alert only the muscles that have been trained (days_since < 30), worst first.
+      const trained = rows
+        .filter((r) => r.vec.days_since_last_session < 30)
+        .sort((a, b) => (a.model ?? a.heuristic) - (b.model ?? b.heuristic));
+      const fmt = (r: (typeof rows)[number]) => {
+        const v = r.vec;
+        return (
+          `${r.muscle}: model ${r.model ?? 'n/a'} / heur ${r.heuristic}\n` +
+          `  sets7d ${v.total_sets_7d}  sets14d ${v.total_sets_14d}  sess ${v.sessions_7d}  days ${v.days_since_last_session.toFixed(1)}\n` +
+          `  avgRPE ${v.avg_rpe_7d.toFixed(1)}  stall ${v.stall_ratio.toFixed(2)}  trend ${v.volume_trend_4wk.toFixed(2)}\n` +
+          `  hrv ${v.hrv_latest}  rhr ${v.resting_hr_latest}  sleep ${v.sleep_hours_avg_7d.toFixed(1)}  health ${v.has_health_data}`
+        );
+      };
+      const body = trained.length
+        ? trained.slice(0, 6).map(fmt).join('\n\n')
+        : 'No muscle groups trained in the last 30 days.';
+      Alert.alert('Recovery Breakdown', body);
+    } catch (e: any) {
+      Alert.alert('Recovery Breakdown error', String(e?.message ?? e));
     } finally {
       setBusy(false);
     }
@@ -404,6 +435,15 @@ export default function SettingsScreen() {
         >
           <Text style={styles.secondaryText}>Test Recovery Model</Text>
           <Text style={styles.destructiveSubtext}>Runs recovery_v1 on rested vs fatigued sample states</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleRecoveryBreakdown}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Recovery Breakdown</Text>
+          <Text style={styles.destructiveSubtext}>Dumps your real per-muscle features + model vs heuristic score</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
