@@ -188,3 +188,62 @@ export async function testProgressionModel(): Promise<OnnxPocResult> {
     return { ok: false, message: `Progression model failed: ${e?.message ?? e}` };
   }
 }
+
+// =============================================================================
+// Recovery model inference (Phase 4.1 model; wired Phase 4.2)
+// =============================================================================
+
+const RECOVERY_MODEL = require('@/assets/models/recovery_v1.onnx');
+export const RECOVERY_FEATURE_DIM = 12;
+
+let recoverySessionPromise: Promise<any> | null = null;
+
+async function getRecoverySession() {
+  const o = getOrt();
+  if (!o) throw new Error(`ONNX Runtime is not available on platform "${Platform.OS}".`);
+  if (!recoverySessionPromise) {
+    recoverySessionPromise = resolveModelPath(RECOVERY_MODEL).then((path) =>
+      o.InferenceSession.create(path),
+    );
+  }
+  return recoverySessionPromise;
+}
+
+/**
+ * Run the recovery regressor on an ordered 12-feature vector (order = RecoveryFeatureVector
+ * fields). Returns a recovery score 0–100. The regressor is unclamped, so we clamp + round
+ * to match the heuristic's output domain.
+ */
+export async function runRecoveryInference(features: number[]): Promise<number> {
+  const o = getOrt();
+  if (!o) throw new Error(`ONNX Runtime is not available on platform "${Platform.OS}".`);
+  if (features.length !== RECOVERY_FEATURE_DIM) {
+    throw new Error(`Expected ${RECOVERY_FEATURE_DIM} features, got ${features.length}.`);
+  }
+  const session = await getRecoverySession();
+  const inputName = session.inputNames[0];
+  const tensor = new o.Tensor('float32', Float32Array.from(features), [1, RECOVERY_FEATURE_DIM]);
+  const results = await session.run({ [inputName]: tensor });
+  const raw = (results[session.outputNames[0]].data as Float32Array)[0] ?? 0;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+// Phase 4.2 on-device check: run two contrasting states (well-rested vs dug-in) and confirm
+// the model discriminates (rested high, fatigued low).
+export async function testRecoveryModel(): Promise<OnnxPocResult> {
+  const o = getOrt();
+  if (!o) {
+    return { ok: false, message: `ONNX Runtime unavailable on "${Platform.OS}" — run a dev client on iOS/Android.` };
+  }
+  try {
+    // [sets7, sets14, avgRpe, maxRpe, sessions, daysSince, stall, hrv, rhr, sleep, volTrend, hasHealth]
+    const rested = [6, 12, 7, 8, 2, 4, 0.1, 70, 58, 8, -1, 1];
+    const fatigued = [24, 40, 9.2, 9.8, 6, 0, 0.7, 45, 80, 5, 4, 1];
+    const t0 = Date.now();
+    const a = await runRecoveryInference(rested);
+    const b = await runRecoveryInference(fatigued);
+    return { ok: true, message: `Recovery model OK — rested ${a}/100, fatigued ${b}/100 (${Date.now() - t0}ms)` };
+  } catch (e: any) {
+    return { ok: false, message: `Recovery model failed: ${e?.message ?? e}` };
+  }
+}

@@ -6,6 +6,7 @@
 
 import { getDB } from '@/lib/db';
 import { MuscleGroup } from '@/lib/types';
+import { runRecoveryInference } from './model-manager';
 import { getRecoveryScore, upsertRecoveryScore } from './repo';
 import { ProgressionFeatureVector, RecoveryFeatureVector } from './types';
 
@@ -452,17 +453,34 @@ const ALL_MUSCLE_GROUPS: MuscleGroup[] = [
   'core', 'lower_back', 'upper_back', 'lats',
 ];
 
+// RecoveryFeatureVector field order — MUST match the recovery model's training/export
+// (scripts/train_recovery_model) and the ONNX input tensor.
+const RECOVERY_FEATURE_ORDER: (keyof RecoveryFeatureVector)[] = [
+  'total_sets_7d', 'total_sets_14d', 'avg_rpe_7d', 'max_rpe_7d', 'sessions_7d',
+  'days_since_last_session', 'stall_ratio', 'hrv_latest', 'resting_hr_latest',
+  'sleep_hours_avg_7d', 'volume_trend_4wk', 'has_health_data',
+];
+
 /**
- * Computes and caches heuristic recovery scores for all 12 muscle groups.
+ * Computes and caches recovery scores for all 12 muscle groups (Phase 4).
+ * Tries the ONNX recovery model first (model_version 'onnx_v1'); on any failure
+ * (web, model unloadable, etc.) falls back to the heuristic ('heuristic').
  * Called by AIContext on mount and after each workout completion.
- * Safe to call at any time; existing non-expired scores are replaced.
  */
 export async function computeAndCacheAllRecoveryScores(): Promise<void> {
   for (const muscleGroup of ALL_MUSCLE_GROUPS) {
     try {
       const vec = await buildRecoveryFeatureVector(muscleGroup);
-      const score = computeHeuristicRecoveryScore(vec);
-      await upsertRecoveryScore(muscleGroup, score, 'heuristic');
+      let score: number;
+      let modelVersion: string;
+      try {
+        score = await runRecoveryInference(RECOVERY_FEATURE_ORDER.map((k) => vec[k]));
+        modelVersion = 'onnx_v1';
+      } catch {
+        score = computeHeuristicRecoveryScore(vec);
+        modelVersion = 'heuristic';
+      }
+      await upsertRecoveryScore(muscleGroup, score, modelVersion);
     } catch (e) {
       console.warn(`Failed to compute recovery score for ${muscleGroup}:`, e);
     }

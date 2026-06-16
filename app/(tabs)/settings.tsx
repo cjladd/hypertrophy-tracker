@@ -2,7 +2,7 @@ import { useAI } from "@/context/AIContext";
 import { useSettings } from "@/context/SettingsContext";
 import { resetDB } from "@/lib/db";
 import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
-import { testOnnxRuntime, testProgressionModel } from "@/lib/ai/model-manager";
+import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -168,6 +168,18 @@ export default function SettingsScreen() {
       Alert.alert(result.ok ? "Progression Model OK" : "Progression Model failed", result.message);
     } catch (e: any) {
       Alert.alert("Progression Model error", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleTestRecoveryModel = async () => {
+    setBusy(true);
+    try {
+      const result = await testRecoveryModel();
+      Alert.alert(result.ok ? "Recovery Model OK" : "Recovery Model failed", result.message);
+    } catch (e: any) {
+      Alert.alert("Recovery Model error", String(e?.message ?? e));
     } finally {
       setBusy(false);
     }
@@ -359,6 +371,15 @@ export default function SettingsScreen() {
         >
           <Text style={styles.secondaryText}>Test Progression Model</Text>
           <Text style={styles.destructiveSubtext}>Runs the trained progression_v1 classifier on a sample state</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleTestRecoveryModel}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Test Recovery Model</Text>
+          <Text style={styles.destructiveSubtext}>Runs recovery_v1 on rested vs fatigued sample states</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
