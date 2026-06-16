@@ -2,6 +2,7 @@
 // Provides AI state (recovery scores, anomalies, suggestions, insights) to all screens.
 // Phase 0 shell: loads data from SQLite; actual model inference added in later phases.
 
+import { runAdaptiveProgramming } from '@/lib/ai/adaptive';
 import { runAllAnomalyDetection } from '@/lib/ai/anomaly';
 import { generateDailyInsight, generateWeeklyInsight } from '@/lib/ai/coaching';
 import {
@@ -75,7 +76,7 @@ export function useAI(): AIContextValue {
 // =============================================================================
 
 export function AIProvider({ children }: { children: ReactNode }) {
-  const { anomalyDetectionEnabled, coachingInsightsEnabled } = useSettings();
+  const { anomalyDetectionEnabled, coachingInsightsEnabled, adaptiveProgrammingEnabled } = useSettings();
   const [recoveryScores, setRecoveryScores] = useState<RecoveryScore[]>([]);
   const [anomalies, setAnomalies] = useState<AnomalyAlert[]>([]);
   const [suggestions, setSuggestions] = useState<AdaptiveSuggestion[]>([]);
@@ -97,6 +98,9 @@ export function AIProvider({ children }: { children: ReactNode }) {
       if (anomalyDetectionEnabled) {
         await runAllAnomalyDetection();
       }
+      if (adaptiveProgrammingEnabled) {
+        await runAdaptiveProgramming();
+      }
       if (coachingInsightsEnabled) {
         await generateDailyInsight();
         await generateWeeklyInsight();
@@ -117,7 +121,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.warn('AIContext refresh failed:', e);
     }
-  }, [anomalyDetectionEnabled, coachingInsightsEnabled]);
+  }, [anomalyDetectionEnabled, coachingInsightsEnabled, adaptiveProgrammingEnabled]);
 
   // Initial load on mount — also loads health settings
   useEffect(() => {

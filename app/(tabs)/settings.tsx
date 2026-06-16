@@ -22,7 +22,14 @@ import {
 } from "react-native";
 
 export default function SettingsScreen() {
-  const { weightJumpLb, setWeightJumpLb, activeRoutineId, resetOnboarding } = useSettings();
+  const {
+    weightJumpLb,
+    setWeightJumpLb,
+    activeRoutineId,
+    resetOnboarding,
+    adaptiveProgrammingEnabled,
+    setAdaptiveProgrammingEnabled,
+  } = useSettings();
   const {
     healthEnabled,
     healthLastSyncAt,
@@ -335,6 +342,23 @@ export default function SettingsScreen() {
           )}
         </View>
       )}
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>AI Coaching</Text>
+        <View style={styles.healthToggleRow}>
+          <View style={styles.healthToggleInfo}>
+            <Text style={styles.label}>Adaptive Programming</Text>
+            <Text style={styles.healthSubtext}>
+              Suggest deloads, volume changes, and exercise swaps from your recovery and training signals
+            </Text>
+          </View>
+          <Switch
+            value={adaptiveProgrammingEnabled}
+            onValueChange={setAdaptiveProgrammingEnabled}
+            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+          />
+        </View>
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Dev tools</Text>

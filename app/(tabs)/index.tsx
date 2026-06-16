@@ -1,5 +1,6 @@
 import AnomalyCard from "@/components/AnomalyCard";
 import CoachingCard from "@/components/CoachingCard";
+import SuggestionCard from "@/components/SuggestionCard";
 import { useAI } from "@/context/AIContext";
 import { getActiveWorkoutForResume, listRecentWorkouts } from "@/lib/repo";
 import type { Workout } from "@/lib/types";
@@ -8,7 +9,15 @@ import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Index() {
-  const { anomalies, dismissAnomaly, latestInsight, dismissInsight } = useAI();
+  const {
+    anomalies,
+    dismissAnomaly,
+    latestInsight,
+    dismissInsight,
+    suggestions,
+    acceptSuggestion,
+    rejectSuggestion,
+  } = useAI();
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +141,26 @@ export default function Index() {
           ))}
           {anomalies.length > 3 && (
             <Text style={styles.moreAlertsText}>+{anomalies.length - 3} more alerts</Text>
+          )}
+        </View>
+      )}
+
+      {/* Coaching Suggestions */}
+      {suggestions.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Coaching Suggestions</Text>
+          </View>
+          {suggestions.slice(0, 3).map((s) => (
+            <SuggestionCard
+              key={s.id}
+              suggestion={s}
+              onAccept={acceptSuggestion}
+              onReject={rejectSuggestion}
+            />
+          ))}
+          {suggestions.length > 3 && (
+            <Text style={styles.moreAlertsText}>+{suggestions.length - 3} more suggestions</Text>
           )}
         </View>
       )}
