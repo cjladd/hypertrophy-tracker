@@ -1,6 +1,7 @@
 // app/(tabs)/progress.tsx
 // Progress Charts screen - Visualize strength progression over time (PRD section 3F, section 5)
 
+import RecoveryDashboard from "@/components/RecoveryDashboard";
 import {
   getExerciseProgressData,
   getExercisesWithWorkoutCount,
@@ -305,6 +306,9 @@ export default function ProgressScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Progress</Text>
       <Text style={styles.subtitle}>Track your strength gains over time</Text>
+
+      {/* Recovery Dashboard (Phase 4.4) */}
+      <RecoveryDashboard />
 
       {/* Exercise Selector */}
       <TouchableOpacity style={styles.exerciseSelector} onPress={() => setPickerVisible(true)}>
