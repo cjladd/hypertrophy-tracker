@@ -14,6 +14,14 @@ import { ProgressionFeatureVector, RecoveryFeatureVector } from './types';
 const DEFAULT_RPE = 8.0;
 // Neutral recovery score used when no score is cached
 const NEUTRAL_RECOVERY_SCORE = 75;
+// Neutral health baselines used to impute a MISSING channel when other health data is
+// present. The recovery model was trained on all-or-nothing health (see
+// generate_recovery_data.py), so a partial device vector like `health=1, sleep=0` is
+// out-of-distribution and the model misreads the literal 0. These values are penalty-free
+// in the heuristic, so imputing them leaves the fallback path unchanged.
+const HRV_NEUTRAL = 65; // == HRV_BASELINE in the heuristic
+const RHR_NEUTRAL = 65; // == HR_BASELINE in the heuristic
+const SLEEP_NEUTRAL = 7.5; // ~training-data mean, above the heuristic's penalty band
 
 // =============================================================================
 // Internal helpers
@@ -340,14 +348,24 @@ export async function buildRecoveryFeatureVector(
     [cutoff7d],
   );
 
-  const hrv_latest = latestHRV?.value ?? 0;
-  const resting_hr_latest = latestHR?.value ?? 0;
-  const sleep_hours_avg_7d =
+  // Raw values straight from HealthKit samples (0 = that channel has no data).
+  const rawHrv = latestHRV?.value ?? 0;
+  const rawRhr = latestHR?.value ?? 0;
+  const rawSleep =
     sleepRows.length > 0
       ? sleepRows.reduce((s, r) => s + r.value, 0) / sleepRows.length
       : 0;
-  const has_health_data =
-    hrv_latest > 0 || resting_hr_latest > 0 || sleep_hours_avg_7d > 0 ? 1 : 0;
+
+  // Health is present if ANY channel reported. But the model was trained on all-or-nothing
+  // health, so feeding a partial vector (e.g. HRV+RHR present, sleep=0) is out-of-distribution
+  // and the model misreads the missing channel's 0 as a catastrophic reading. Impute a neutral
+  // baseline for each missing channel so the model sees an in-distribution "health present"
+  // vector. The neutral values are penalty-free in the heuristic, so the fallback is unchanged.
+  const hasAnyHealth = rawHrv > 0 || rawRhr > 0 || rawSleep > 0;
+  const has_health_data = hasAnyHealth ? 1 : 0;
+  const hrv_latest = hasAnyHealth ? (rawHrv > 0 ? rawHrv : HRV_NEUTRAL) : 0;
+  const resting_hr_latest = hasAnyHealth ? (rawRhr > 0 ? rawRhr : RHR_NEUTRAL) : 0;
+  const sleep_hours_avg_7d = hasAnyHealth ? (rawSleep > 0 ? rawSleep : SLEEP_NEUTRAL) : 0;
 
   // --- 4-week volume trend ---
   const volume_trend_4wk = await computeMuscleTrend4wk(muscleGroup);
