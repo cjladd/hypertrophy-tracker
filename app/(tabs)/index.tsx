@@ -106,6 +106,12 @@ export default function Index() {
             <Text style={styles.secondaryButtonText}>Manage Exercises</Text>
           </TouchableOpacity>
         </Link>
+
+        <Link href="/trainer-chat" asChild>
+          <TouchableOpacity style={styles.trainerButton}>
+            <Text style={styles.trainerButtonText}>Ask Your Trainer</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
 
       {/* Stats Overview */}
@@ -279,6 +285,22 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  trainerButton: {
+    backgroundColor: "#5856D6",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trainerButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
   statsSection: {
     flexDirection: "row",
