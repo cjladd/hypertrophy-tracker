@@ -1148,6 +1148,21 @@ export default function LogWorkoutScreen() {
                     Target: {currentSuggestion.currentCeiling} reps (expanded ceiling)
                   </Text>
                 )}
+                <TouchableOpacity
+                  style={styles.whyButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/trainer-chat',
+                      params: {
+                        exerciseId: currentWorkoutExercise.exercise.id,
+                        exerciseName: currentWorkoutExercise.exercise.name,
+                      },
+                    })
+                  }
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={14} color="#1565C0" />
+                  <Text style={styles.whyButtonText}>Why this weight?</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -1638,6 +1653,19 @@ const styles = StyleSheet.create({
     color: "#1976D2",
     marginTop: 4,
     fontWeight: "500",
+  },
+  whyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  whyButtonText: {
+    fontSize: 13,
+    color: "#1565C0",
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   exerciseGroup: {
     marginBottom: 15,
