@@ -297,7 +297,11 @@ export default function TemplatesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalContent}>
+            <ScrollView
+              style={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
               {/* Template Name */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Template Name</Text>

@@ -1,3 +1,4 @@
+import ModalKeyboardWrapper from "@/components/ModalKeyboardWrapper";
 import {
     addExercise,
     deleteExercise,
@@ -279,7 +280,7 @@ export default function ExercisesScreen() {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <ModalKeyboardWrapper overlayStyle={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               {editingExercise ? "Edit Exercise" : "Add Exercise"}
@@ -361,7 +362,7 @@ export default function ExercisesScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ModalKeyboardWrapper>
       </Modal>
     </View>
   );
