@@ -192,6 +192,15 @@ export async function removeWorkoutExercise(workoutExerciseId: string): Promise<
   await run(db, 'DELETE FROM workout_exercises WHERE id = ?', [workoutExerciseId]);
 }
 
+// Swap the exercise for an existing slot mid-workout (e.g. equipment occupied). Any sets
+// already logged belonged to the old exercise, so they are cleared — callers confirm with the
+// user first when sets exist. The slot's id and order_index are preserved.
+export async function replaceWorkoutExercise(workoutExerciseId: string, newExerciseId: string): Promise<void> {
+  const db = await getDB();
+  await run(db, 'DELETE FROM sets WHERE workout_exercise_id = ?', [workoutExerciseId]);
+  await run(db, 'UPDATE workout_exercises SET exercise_id = ? WHERE id = ?', [newExerciseId, workoutExerciseId]);
+}
+
 // ============================================
 // SETS (working sets only, per PRD)
 // ============================================

@@ -4,6 +4,7 @@
 // Progression engine integration
 
 import ExercisePicker from "@/components/ExercisePicker";
+import ModalKeyboardWrapper from "@/components/ModalKeyboardWrapper";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
 import { generatePostWorkoutInsight } from "@/lib/ai/coaching";
 import { useSettings } from "@/context/SettingsContext";
@@ -26,6 +27,7 @@ import {
     getWorkout,
     getWorkoutExercises,
     removeWorkoutExercise,
+    replaceWorkoutExercise,
     startWorkout,
     startWorkoutFromRoutineDay,
     updateProgressionAfterWorkout,
@@ -67,6 +69,8 @@ export default function LogWorkoutScreen() {
   const [workoutExercises, setWorkoutExercises] = useState<WorkoutExerciseWithSets[]>([]);
   const [currentWorkoutExercise, setCurrentWorkoutExercise] = useState<WorkoutExerciseWithSets | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+  // When set, the picker is replacing this slot's exercise rather than adding a new one.
+  const [swapTargetId, setSwapTargetId] = useState<string | null>(null);
 
   // Start screen state
   const [routineTemplates, setRoutineTemplates] = useState<RoutineWithTemplates[]>([]);
@@ -364,8 +368,82 @@ export default function LogWorkoutScreen() {
     }
   };
 
+  // Swap an existing slot's exercise mid-workout (equipment occupied, change of plan, etc.).
+  const handleSwapExercise = async (exercise: Exercise) => {
+    const targetId = swapTargetId;
+    setPickerVisible(false);
+    setSwapTargetId(null);
+    if (!targetId) return;
+
+    const target = workoutExercises.find((w) => w.id === targetId);
+    if (!target || target.exercise_id === exercise.id) return; // gone or no-op
+
+    // Don't allow the same exercise to appear twice in one workout.
+    const duplicate = workoutExercises.find(
+      (w) => w.id !== targetId && w.exercise_id === exercise.id
+    );
+    if (duplicate) {
+      Alert.alert("Already added", `${exercise.name} is already in this workout.`);
+      return;
+    }
+
+    const doSwap = async () => {
+      try {
+        await replaceWorkoutExercise(targetId, exercise.id);
+        const swapped: WorkoutExerciseWithSets = {
+          ...target,
+          exercise_id: exercise.id,
+          exercise,
+          sets: [],
+        };
+        setWorkoutExercises((prev) => prev.map((w) => (w.id === targetId ? swapped : w)));
+
+        // If the swapped slot is the active one, refresh the form + suggestion for it.
+        if (currentWorkoutExercise?.id === targetId) {
+          const suggestion = await getProgressionSuggestion(exercise.id);
+          setCurrentWorkoutExercise(swapped);
+          setCurrentSuggestion(suggestion);
+          setWeight(suggestion.suggestedWeightLb > 0 ? String(suggestion.suggestedWeightLb) : "");
+          setReps(
+            String(
+              suggestion.currentCeiling > exercise.rep_range_max
+                ? suggestion.currentCeiling
+                : exercise.rep_range_max
+            )
+          );
+          setRpe(undefined);
+        }
+      } catch {
+        Alert.alert("Error", "Failed to swap exercise");
+      }
+    };
+
+    if (target.sets.length > 0) {
+      Alert.alert(
+        "Swap Exercise",
+        `${target.exercise.name} has ${target.sets.length} logged set${
+          target.sets.length !== 1 ? "s" : ""
+        }. Swapping to ${exercise.name} will remove ${
+          target.sets.length !== 1 ? "them" : "it"
+        }. Continue?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Swap", style: "destructive", onPress: () => void doSwap() },
+        ]
+      );
+    } else {
+      await doSwap();
+    }
+  };
+
   const handleSelectExercise = async (exercise: Exercise) => {
     if (!workoutId) return;
+
+    // Picker was opened to replace an existing slot, not add a new exercise.
+    if (swapTargetId) {
+      await handleSwapExercise(exercise);
+      return;
+    }
 
     // Check if exercise already added to this workout
     const existing = workoutExercises.find((we) => we.exercise_id === exercise.id);
@@ -1236,6 +1314,15 @@ export default function LogWorkoutScreen() {
                           />
                         </TouchableOpacity>
                         <TouchableOpacity
+                          style={styles.moveButton}
+                          onPress={() => {
+                            setSwapTargetId(we.id);
+                            setPickerVisible(true);
+                          }}
+                        >
+                          <Ionicons name="swap-horizontal-outline" size={20} color="#007AFF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
                           style={styles.removeExerciseButton}
                           onPress={() => handleRemoveExercise(we.id)}
                         >
@@ -1297,8 +1384,12 @@ export default function LogWorkoutScreen() {
 
       <ExercisePicker
         visible={pickerVisible}
+        title={swapTargetId ? "Swap Exercise" : "Select Exercise"}
         onSelect={handleSelectExercise}
-        onClose={() => setPickerVisible(false)}
+        onClose={() => {
+          setPickerVisible(false);
+          setSwapTargetId(null);
+        }}
       />
 
       {/* Save as Template Modal */}
@@ -1308,7 +1399,7 @@ export default function LogWorkoutScreen() {
         transparent
         onRequestClose={handleCancelSaveTemplate}
       >
-        <View style={styles.modalOverlay}>
+        <ModalKeyboardWrapper overlayStyle={styles.modalOverlay}>
           <View style={styles.saveTemplateModal}>
             <Text style={styles.saveTemplateTitle}>Template Name</Text>
             <TextInput
@@ -1337,7 +1428,7 @@ export default function LogWorkoutScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ModalKeyboardWrapper>
       </Modal>
 
       {/* Edit Set Modal */}
@@ -1347,7 +1438,7 @@ export default function LogWorkoutScreen() {
         transparent
         onRequestClose={closeEditSet}
       >
-        <View style={styles.modalOverlay}>
+        <ModalKeyboardWrapper overlayStyle={styles.modalOverlay}>
           <View style={styles.editSetModal}>
             <Text style={styles.editSetTitle}>Edit Set</Text>
 
@@ -1400,7 +1491,7 @@ export default function LogWorkoutScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ModalKeyboardWrapper>
       </Modal>
     </View>
   );

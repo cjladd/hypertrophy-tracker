@@ -24,9 +24,10 @@ interface ExercisePickerProps {
   visible: boolean;
   onSelect: (exercise: Exercise) => void;
   onClose: () => void;
+  title?: string;
 }
 
-export default function ExercisePicker({ visible, onSelect, onClose }: ExercisePickerProps) {
+export default function ExercisePicker({ visible, onSelect, onClose, title = "Select Exercise" }: ExercisePickerProps) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,7 +121,7 @@ export default function ExercisePicker({ visible, onSelect, onClose }: ExerciseP
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <SafeAreaView style={styles.container} edges={["top"]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Select Exercise</Text>
+            <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>X</Text>
             </TouchableOpacity>
