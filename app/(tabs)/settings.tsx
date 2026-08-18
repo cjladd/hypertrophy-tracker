@@ -4,6 +4,7 @@ import { resetDB } from "@/lib/db";
 import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } from "@/lib/ai/health-sync";
 import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
 import { debugRecoveryBreakdown } from "@/lib/ai/features";
+import { isProxyConfigured } from "@/lib/ai/trainer-config";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -36,7 +37,10 @@ export default function SettingsScreen() {
     healthLastSyncAt,
     enableHealthIntegration,
     disableHealthIntegration,
+    trainerInsightsEnabled,
+    setTrainerInsightsEnabled,
   } = useAI();
+  const proxyConfigured = isProxyConfigured();
   const [localWeightJump, setLocalWeightJump] = useState(String(weightJumpLb));
   const [busy, setBusy] = useState(false);
   const [healthBusy, setHealthBusy] = useState(false);
@@ -389,6 +393,29 @@ export default function SettingsScreen() {
             trackColor={{ false: '#E5E5EA', true: '#34C759' }}
           />
         </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Personal Trainer</Text>
+        <View style={styles.healthToggleRow}>
+          <View style={styles.healthToggleInfo}>
+            <Text style={styles.label}>AI coaching insights</Text>
+            <Text style={styles.healthSubtext}>
+              Let the trainer model write your coaching notes instead of the built-in templates
+            </Text>
+          </View>
+          <Switch
+            value={trainerInsightsEnabled}
+            onValueChange={(v) => void setTrainerInsightsEnabled(v)}
+            disabled={!proxyConfigured}
+            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+          />
+        </View>
+        <Text style={styles.healthSubtext}>
+          {proxyConfigured
+            ? 'Trainer connected. "Ask Your Trainer" on Home uses the live model.'
+            : 'Not connected — set EXPO_PUBLIC_TRAINER_PROXY_URL in .env. Until then, chat and insights use the on-device preview.'}
+        </Text>
       </View>
 
       <View style={styles.card}>

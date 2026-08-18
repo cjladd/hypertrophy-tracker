@@ -45,6 +45,9 @@ type AIContextValue = {
   healthPermissionsGranted: boolean;
   healthLastSyncAt: number | null;
 
+  // Trainer bot (Phase 7): model-written proactive insights toggle
+  trainerInsightsEnabled: boolean;
+
   // Status
   isLoading: boolean;
   lastRefreshedAt: number | null;
@@ -57,6 +60,7 @@ type AIContextValue = {
   rejectSuggestion: (id: string) => Promise<void>;
   enableHealthIntegration: () => Promise<void>;
   disableHealthIntegration: () => Promise<void>;
+  setTrainerInsightsEnabled: (v: boolean) => Promise<void>;
 };
 
 // =============================================================================
@@ -88,6 +92,9 @@ export function AIProvider({ children }: { children: ReactNode }) {
   const [healthEnabled, setHealthEnabled] = useState(false);
   const [healthPermissionsGranted, setHealthPermissionsGranted] = useState(false);
   const [healthLastSyncAt, setHealthLastSyncAt] = useState<number | null>(null);
+
+  // Trainer-bot proactive-insight opt-in (ai_settings.llm_enabled)
+  const [trainerInsightsEnabled, setTrainerInsightsEnabledState] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Core refresh: recompute heuristic scores, run detectors, load AI state
@@ -133,6 +140,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
       ]);
       setHealthEnabled(aiSettings.health_integration_enabled);
       setHealthPermissionsGranted(aiSettings.health_permissions_granted);
+      setTrainerInsightsEnabledState(aiSettings.llm_enabled);
       setIsLoading(false);
     })();
   }, [refresh]);
@@ -193,6 +201,11 @@ export function AIProvider({ children }: { children: ReactNode }) {
     setHealthEnabled(false);
   }, []);
 
+  const handleSetTrainerInsightsEnabled = useCallback(async (v: boolean) => {
+    await patchAISettings({ llm_enabled: v });
+    setTrainerInsightsEnabledState(v);
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Provide
   // ---------------------------------------------------------------------------
@@ -205,6 +218,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     healthEnabled,
     healthPermissionsGranted,
     healthLastSyncAt,
+    trainerInsightsEnabled,
     isLoading,
     lastRefreshedAt,
     refresh,
@@ -214,6 +228,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
     rejectSuggestion: handleRejectSuggestion,
     enableHealthIntegration: handleEnableHealthIntegration,
     disableHealthIntegration: handleDisableHealthIntegration,
+    setTrainerInsightsEnabled: handleSetTrainerInsightsEnabled,
   };
 
   return <AIContext.Provider value={value}>{children}</AIContext.Provider>;

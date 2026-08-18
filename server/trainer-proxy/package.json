@@ -1,0 +1,16 @@
+{
+  "name": "trainer-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker proxy for the Hypertrophy Helper Personal Trainer Bot (holds the OpenAI key, streams gpt-4o-mini).",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.90.0"
+  }
+}

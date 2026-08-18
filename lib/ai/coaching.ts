@@ -1,11 +1,14 @@
 // lib/ai/coaching.ts
-// Template-based coaching insights triggered by training milestones.
-// All text is source: 'template'. Phase 7 replaces with LLM-generated versions.
+// Coaching insights triggered by training milestones. Each generator detects a trigger and
+// composes a template message, then routes the write through `maybeLLMInsight` (Phase 7.4):
+// when the trainer proxy + opt-in are on, the model rewrites it (source:'llm'); otherwise the
+// template text is stored (source:'template'). Triggers and dedup are unchanged either way.
 
 import { getDB } from '@/lib/db';
 import { getExerciseProgressData } from '@/lib/repo/progress';
 import type { CoachingInsight, InsightType } from './types';
-import { getAllRecoveryScores, insertInsight } from './repo';
+import { getAllRecoveryScores } from './repo';
+import { maybeLLMInsight } from './llm-insights';
 
 function formatMuscleGroup(mg: string): string {
   return mg.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -56,7 +59,11 @@ export async function generatePostWorkoutInsight(
       const content = gapDays >= 14
         ? 'Welcome back after the break. Start lighter than you think — the body readjusts faster than you expect.'
         : "Good to be back. Ease into it — consistency over the next few weeks matters more than today's numbers.";
-      return insertInsight('post_workout', content, 'template');
+      return maybeLLMInsight(
+        'post_workout',
+        `The user just returned to training after about ${Math.round(gapDays)} days off.`,
+        content,
+      );
     }
   }
 
@@ -78,7 +85,12 @@ export async function generatePostWorkoutInsight(
 
     if (currentMax > priorMax) {
       const content = `New PR on ${ex.name}: ${currentMax} lb. That's what consistent work looks like — keep building on it.`;
-      return insertInsight('post_workout', content, 'template', { exercise_id: ex.exercise_id });
+      return maybeLLMInsight(
+        'post_workout',
+        `New personal record on ${ex.name}: ${currentMax} lb (previous best ${priorMax} lb).`,
+        content,
+        { exercise_id: ex.exercise_id },
+      );
     }
   }
 
@@ -115,7 +127,12 @@ export async function generateDailyInsight(): Promise<CoachingInsight | null> {
       const mg = formatMuscleGroup(score.muscle_group);
       const days = Math.floor(daysSince);
       const content = `${mg} is fully recovered (${score.score}/100) and hasn't been trained in ${days} day${days === 1 ? '' : 's'}. Good time to hit it.`;
-      return insertInsight('daily', content, 'template', { muscle_group: score.muscle_group });
+      return maybeLLMInsight(
+        'daily',
+        `${mg} is well recovered (${score.score}/100) and hasn't been trained in ${days} day${days === 1 ? '' : 's'}.`,
+        content,
+        { muscle_group: score.muscle_group },
+      );
     }
   }
 
@@ -152,5 +169,9 @@ export async function generateWeeklyInsight(): Promise<CoachingInsight | null> {
     content = `${weekCount} workouts this week. Solid effort. A bit more consistency and you'll start compounding the results.`;
   }
 
-  return insertInsight('weekly', content, 'template');
+  return maybeLLMInsight(
+    'weekly',
+    `The user logged ${weekCount} workout${weekCount === 1 ? '' : 's'} in the past 7 days.`,
+    content,
+  );
 }

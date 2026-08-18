@@ -1,0 +1,14 @@
+name = "trainer-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Per-IP daily rate-limit counter. Create the namespace and paste its id below:
+#   wrangler kv namespace create RATE_LIMIT
+# The Worker still runs without it (rate limiting is simply skipped).
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets are NOT stored here — set them with:
+#   wrangler secret put OPENAI_API_KEY
+#   wrangler secret put APP_ACCESS_TOKEN
