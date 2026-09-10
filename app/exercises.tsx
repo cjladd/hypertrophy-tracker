@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ModalKeyboardWrapper from "@/components/ModalKeyboardWrapper";
 import {
     addExercise,
@@ -23,6 +24,7 @@ import {
 } from "react-native";
 
 export default function ExercisesScreen() {
+  const insets = useSafeAreaInsets();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -269,7 +271,7 @@ export default function ExercisesScreen() {
       />
 
       {/* Add Button */}
-      <TouchableOpacity style={styles.fab} onPress={openAddModal}>
+      <TouchableOpacity style={[styles.fab, { bottom: 20 + insets.bottom }]} onPress={openAddModal}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 

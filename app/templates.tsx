@@ -2,6 +2,7 @@
 // Templates screen for CRUD operations on workout templates
 // Per PRD section 3E: Create, read, update, delete templates; edit exercise order
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DraggableExerciseList, { DraggableItem } from "@/components/DraggableExerciseList";
 import ExercisePicker from "@/components/ExercisePicker";
 import {
@@ -29,6 +30,7 @@ import {
 type ModalMode = "create" | "edit" | null;
 
 export default function TemplatesScreen() {
+  const insets = useSafeAreaInsets();
   const [routineTemplates, setRoutineTemplates] = useState<RoutineWithTemplates[]>([]);
   const [standaloneTemplates, setStandaloneTemplates] = useState<Template[]>([]);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
@@ -273,7 +275,7 @@ export default function TemplatesScreen() {
       </ScrollView>
 
       {/* Create Button */}
-      <TouchableOpacity style={styles.createButton} onPress={openCreateModal}>
+      <TouchableOpacity style={[styles.createButton, { bottom: 30 + insets.bottom }]} onPress={openCreateModal}>
         <Text style={styles.createButtonText}>+ New Template</Text>
       </TouchableOpacity>
 

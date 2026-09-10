@@ -3,6 +3,7 @@
 // No warmups, no per-set notes, working sets only, weightLb
 // Progression engine integration
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExercisePicker from "@/components/ExercisePicker";
 import ModalKeyboardWrapper from "@/components/ModalKeyboardWrapper";
 import RPEPicker, { getRPEColor } from "@/components/RPEPicker";
@@ -59,6 +60,7 @@ interface WorkoutExerciseWithSets extends WorkoutExercise {
 type StartMode = 'empty' | 'repeat' | 'template' | 'routine' | 'continue';
 
 export default function LogWorkoutScreen() {
+  const insets = useSafeAreaInsets();
   const { continueWorkoutId } = useLocalSearchParams<{ continueWorkoutId?: string }>();
   const { activeRoutineId } = useSettings();
   const [workoutId, setWorkoutId] = useState<string | null>(null);
@@ -1375,7 +1377,7 @@ export default function LogWorkoutScreen() {
 
       {/* Finish Button */}
       {getTotalSets() > 0 && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: 15 + insets.bottom }]}>
           <TouchableOpacity style={styles.finishButton} onPress={handleFinishAndPrompt}>
             <Text style={styles.finishButtonText}>Finish Workout</Text>
           </TouchableOpacity>

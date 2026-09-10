@@ -107,6 +107,7 @@ function RootNavigator() {
       <Stack.Screen name="exercises" options={{ headerShown: true, title: "Exercises", headerBackTitle: "Home" }} />
       <Stack.Screen name="templates" options={{ headerShown: true, title: "Templates", headerBackTitle: "Home" }} />
       <Stack.Screen name="routines" options={{ headerShown: true, title: "Choose Routine", headerBackTitle: "Settings" }} />
+      <Stack.Screen name="trainer-chat" options={{ headerShown: true, headerBackTitle: "Home" }} />
     </Stack>
   );
 }

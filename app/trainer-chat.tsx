@@ -5,6 +5,7 @@
 // which is grounded in on-device SQLite. Optional `exerciseId`/`exerciseName` params let
 // the progression card deep-link here with a "Why this weight?" question pre-asked.
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isTrainerBotAvailable, runTrainerQuery } from '@/lib/ai/llm';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -50,6 +51,7 @@ export default function TrainerChat() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
   const available = isTrainerBotAvailable();
 
   const scrollToEnd = useCallback(() => {
@@ -189,7 +191,7 @@ export default function TrainerChat() {
           </View>
         )}
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <TextInput
             style={styles.input}
             value={input}
