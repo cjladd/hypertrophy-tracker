@@ -73,6 +73,17 @@ async function hasSample(type: string, recorded_at: number): Promise<boolean> {
 // Sleep is aggregated per night (sum of all asleep stages per start date).
 // =============================================================================
 
+/**
+ * HealthKit refuses reads while the device is locked (HKErrorDatabaseInaccessible, code 6):
+ * the store stays encrypted until the first unlock, and the app can foreground mid-unlock.
+ * This is an expected transient state, NOT a failure — skip quietly and let the next
+ * foreground sync pick it up. Logging it as an error just produces noise on every launch.
+ */
+function isHealthDataLocked(e: unknown): boolean {
+  const msg = String((e as { message?: string } | null)?.message ?? e);
+  return msg.includes("Code=6") || msg.includes("Protected health data is inaccessible");
+}
+
 export async function syncHealthData(): Promise<void> {
   const HK = getHealthKit();
   if (!HK) return;
@@ -95,6 +106,7 @@ export async function syncHealthData(): Promise<void> {
       }
     }
   } catch (e) {
+    if (isHealthDataLocked(e)) return; // device locked — retry on next foreground
     console.warn('[health] HRV sync failed:', e);
   }
 
@@ -113,6 +125,7 @@ export async function syncHealthData(): Promise<void> {
       }
     }
   } catch (e) {
+    if (isHealthDataLocked(e)) return; // device locked — retry on next foreground
     console.warn('[health] resting HR sync failed:', e);
   }
 
@@ -145,6 +158,7 @@ export async function syncHealthData(): Promise<void> {
       }
     }
   } catch (e) {
+    if (isHealthDataLocked(e)) return; // device locked — retry on next foreground
     console.warn('[health] sleep sync failed:', e);
   }
 }
