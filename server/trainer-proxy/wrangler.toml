@@ -7,7 +7,7 @@ compatibility_date = "2024-11-01"
 # The Worker still runs without it (rate limiting is simply skipped).
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "df52ffadc1c24fc8a38d51d79ad4302a"
 
 # Secrets are NOT stored here — set them with:
 #   wrangler secret put OPENAI_API_KEY
