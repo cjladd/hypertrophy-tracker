@@ -62,19 +62,18 @@ async function isRateLimited(env: Env, ip: string): Promise<boolean> {
 
 /** Transforms OpenAI's SSE stream into a plain-text stream of just the answer deltas. */
 function toPlainTextStream(openaiBody: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-  const reader = openaiBody.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = '';
+  let finished = false;
 
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
+  // NOTE: use TransformStream + pipeThrough rather than a custom ReadableStream with a `pull`
+  // source. On Workers the custom-source form is not reliably pumped for a Response body and
+  // the client sees a 200 with an empty body; pipeThrough ties the pump to the request.
+  const transformer = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      if (finished) return;
+      buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? ''; // last element may be a partial line — keep it
       for (const line of lines) {
@@ -82,7 +81,7 @@ function toPlainTextStream(openaiBody: ReadableStream<Uint8Array>): ReadableStre
         if (!trimmed.startsWith('data:')) continue;
         const data = trimmed.slice(5).trim();
         if (data === '[DONE]') {
-          controller.close();
+          finished = true;
           return;
         }
         try {
@@ -94,10 +93,9 @@ function toPlainTextStream(openaiBody: ReadableStream<Uint8Array>): ReadableStre
         }
       }
     },
-    cancel() {
-      void reader.cancel();
-    },
   });
+
+  return openaiBody.pipeThrough(transformer);
 }
 
 export default {
