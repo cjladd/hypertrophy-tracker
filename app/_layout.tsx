@@ -1,3 +1,4 @@
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { AIProvider } from "@/context/AIContext";
 import { SettingsProvider, useSettings } from "@/context/SettingsContext";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
@@ -13,6 +14,15 @@ import {
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+// The app is light-only. Without this, React Navigation follows the OS appearance
+// (app.json sets userInterfaceStyle "automatic") and paints a BLACK background behind
+// screens on a phone in dark mode — visible as a flash on every navigation.
+const APP_BG = "#f5f5f5";
+const appTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: APP_BG },
+};
 
 export default function RootLayout() {
   const [dbReady, setDbReady] = useState(false);
@@ -65,8 +75,10 @@ export default function RootLayout() {
               style={{ flex: 1 }}
               behavior={Platform.OS === "ios" ? "padding" : "height"}
             >
-              <View style={{ flex: 1 }}>
-                <RootNavigator />
+              <View style={{ flex: 1, backgroundColor: APP_BG }}>
+                <ThemeProvider value={appTheme}>
+                  <RootNavigator />
+                </ThemeProvider>
               </View>
             </KeyboardAvoidingView>
           </AIProvider>

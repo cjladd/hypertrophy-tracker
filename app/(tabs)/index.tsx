@@ -24,7 +24,6 @@ export default function Index() {
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const [wk, active] = await Promise.all([
         listRecentWorkouts(10),
         getActiveWorkoutForResume(),

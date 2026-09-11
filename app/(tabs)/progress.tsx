@@ -55,7 +55,6 @@ export default function ProgressScreen() {
 
   const loadExercises = async () => {
     try {
-      setLoading(true);
       const exercisesWithCount = await getExercisesWithWorkoutCount();
       setExercises(exercisesWithCount);
 

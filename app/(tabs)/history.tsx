@@ -133,7 +133,6 @@ export default function HistoryScreen() {
 
   const loadWorkouts = async () => {
     try {
-      setLoading(true);
       const recentWorkouts = await listRecentWorkouts(100); // Get more workouts for history view
       const allExercises = await getExercises();
 

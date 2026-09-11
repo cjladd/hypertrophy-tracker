@@ -48,7 +48,6 @@ export default function TemplatesScreen() {
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const [groupedData, exercisesData] = await Promise.all([
         getTemplatesGroupedByRoutine(),
         getExercises(),
