@@ -5,6 +5,13 @@ import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } 
 import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
 import { debugRecoveryBreakdown } from "@/lib/ai/features";
 import { isProxyConfigured } from "@/lib/ai/trainer-config";
+import {
+    BackupValidationError,
+    describeBackup,
+    exportBackup,
+    pickBackupFile,
+    restoreBackup,
+} from "@/lib/backup";
 import { clearErrorLog, formatErrorLog, getRecentErrors, reportError } from "@/lib/error-log";
 import {
     findProgressionCacheDrift,
@@ -16,6 +23,7 @@ import {
 } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
+import * as Updates from "expo-updates";
 import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
@@ -168,6 +176,99 @@ export default function SettingsScreen() {
     setWeightJumpLb(5);
     Alert.alert("Reset", "Settings restored to defaults.");
   };
+
+  // ---------------------------------------------------------------- backup / restore
+
+  const handleExportBackup = async () => {
+    setBusy(true);
+    try {
+      const summary = await exportBackup();
+      Alert.alert(
+        "Backup ready",
+        `${summary.workouts} workouts and ${summary.sets} sets exported.\n\n` +
+          "Save it somewhere off this device — iCloud Drive, Files, or AirDrop to a computer.",
+      );
+    } catch (e: any) {
+      void reportError(e, "settings.exportBackup");
+      Alert.alert("Backup failed", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    setBusy(true);
+    try {
+      const envelope = await pickBackupFile();
+      if (!envelope) return; // user cancelled the picker
+
+      // Restore is destructive, so the confirmation states exactly what is being replaced
+      // and what the backup contains.
+      Alert.alert(
+        "Replace all data?",
+        `${describeBackup(envelope)}\n\n` +
+          "Restoring REPLACES everything currently in the app — workouts, exercises, " +
+          "templates, routines and settings. This cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Replace",
+            style: "destructive",
+            onPress: async () => {
+              setBusy(true);
+              try {
+                const summary = await restoreBackup(envelope);
+                // SettingsContext reads AsyncStorage once on mount and AIContext caches its
+                // own state, so both are holding pre-restore values right now. Reloading is
+                // the only way to get every provider to re-read what was just written.
+                Alert.alert(
+                  "Restored",
+                  `${summary.workouts} workouts and ${summary.sets} sets restored.\n\n` +
+                    "Progression state was rebuilt from the restored history. " +
+                    "The app will reload to pick up your restored settings.",
+                  [
+                    {
+                      text: "Reload",
+                      onPress: async () => {
+                        try {
+                          await Updates.reloadAsync();
+                        } catch {
+                          Alert.alert(
+                            "Restart needed",
+                            "Your data was restored. Close and reopen the app to finish applying it.",
+                          );
+                        }
+                      },
+                    },
+                  ],
+                );
+              } catch (e: any) {
+                void reportError(e, "settings.restoreBackup");
+                Alert.alert(
+                  "Restore failed",
+                  `${String(e?.message ?? e)}\n\nYour existing data was left unchanged.`,
+                );
+              } finally {
+                setBusy(false);
+              }
+            },
+          },
+        ],
+      );
+    } catch (e: any) {
+      // Validation failures carry a message written for the user; anything else doesn't.
+      if (e instanceof BackupValidationError) {
+        Alert.alert("Can't restore that file", e.message);
+      } else {
+        void reportError(e, "settings.pickBackupFile");
+        Alert.alert("Restore failed", String(e?.message ?? e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ---------------------------------------------------------------- diagnostics
 
   const handleCheckProgressionCache = async () => {
     setBusy(true);
@@ -503,6 +604,37 @@ export default function SettingsScreen() {
             ? 'Trainer connected. "Ask Your Trainer" on Home uses the live model.'
             : 'Not connected — set EXPO_PUBLIC_TRAINER_PROXY_URL in .env. Until then, chat and insights use the on-device preview.'}
         </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Backup</Text>
+        <Text style={styles.healthSubtext}>
+          All your training data lives only on this phone. Export a backup regularly and keep it
+          somewhere else — it&apos;s the only way to recover your history if you lose or replace
+          this device.
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleExportBackup}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Export backup</Text>
+          <Text style={styles.destructiveSubtext}>
+            Saves every workout, exercise, template and routine to a JSON file you can share
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleRestoreBackup}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Restore from backup</Text>
+          <Text style={styles.destructiveSubtext}>
+            Replaces all current data with the contents of a backup file
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
