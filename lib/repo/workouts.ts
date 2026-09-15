@@ -1,6 +1,8 @@
 import { getDB } from '../db';
+import { reportError } from '../error-log';
 import { all, get, run } from '../sql';
 import { Exercise, Set, Workout, WorkoutExercise } from '../types';
+import { recomputeProgressionState } from './progress';
 import { uuid } from './utils';
 
 // ============================================
@@ -30,18 +32,47 @@ async function finalizeStaleWorkouts(maxAgeMs: number): Promise<void> {
     [cutoff]
   );
 
+  // Exercises whose history changed because a workout crossed from unfinished to finished.
+  const affectedExerciseIds = new Set<string>();
+
   for (const workout of staleWorkouts) {
     if (workout.set_count === 0) {
       await run(db, 'DELETE FROM workouts WHERE id = ?', [workout.id]);
       continue;
     }
 
+    // Capture the exercises BEFORE finalizing: once ended_at is set, this workout becomes a
+    // brand-new exposure that the cached progression_state has never replayed.
+    const exercises = await all<{ exercise_id: string }>(
+      db,
+      'SELECT DISTINCT exercise_id FROM workout_exercises WHERE workout_id = ?',
+      [workout.id]
+    );
+
     const endedAt = workout.last_set_at ?? Date.now();
-    await run(
+    const result = await run(
       db,
       'UPDATE workouts SET ended_at = ? WHERE id = ? AND ended_at IS NULL',
       [endedAt, workout.id]
     );
+
+    if (result.changes > 0) {
+      for (const { exercise_id } of exercises) affectedExerciseIds.add(exercise_id);
+    }
+  }
+
+  // progression_state is a cache derived entirely from finished workouts (see CLAUDE.md).
+  // Auto-finalizing a forgotten workout adds exposures behind the cache's back, so it must be
+  // rebuilt here — otherwise a session the user forgot to hit "Finish" on never reaches the
+  // progression engine and every later suggestion for those exercises is computed from stale
+  // state. Only runs when something was actually finalized, which is rare.
+  for (const exerciseId of affectedExerciseIds) {
+    try {
+      await recomputeProgressionState(exerciseId);
+    } catch (e) {
+      // A single bad exercise shouldn't block the rest of the app from loading.
+      void reportError(e, `finalizeStaleWorkouts.recompute:${exerciseId}`);
+    }
   }
 }
 
@@ -71,6 +102,12 @@ export async function updateWorkoutNotes(workoutId: string, notes: string): Prom
   await run(db, 'UPDATE workouts SET notes = ? WHERE id = ?', [notes, workoutId]);
 }
 
+/**
+ * PROGRESSION CACHE INVARIANT: if the workout was finished, capture its exercise ids BEFORE
+ * calling this and run recomputeProgressionState on each afterwards — the rows are gone by
+ * then. Deliberately not done here: callers that delete in a batch would otherwise pay one
+ * full history replay per workout. See app/(tabs)/history.tsx handleDeleteWorkout.
+ */
 export async function deleteWorkout(workoutId: string): Promise<void> {
   const db = await getDB();
   // CASCADE will handle workout_exercises and sets
@@ -204,6 +241,16 @@ export async function replaceWorkoutExercise(workoutExerciseId: string, newExerc
 // ============================================
 // SETS (working sets only, per PRD)
 // ============================================
+//
+// PROGRESSION CACHE INVARIANT (see CLAUDE.md): progression_state is derived entirely from
+// FINISHED workouts. Mutating sets on an in-progress workout (ended_at IS NULL) therefore needs
+// no recompute — updateProgressionAfterWorkout runs once at finish. Mutating sets on a workout
+// that is already finished (i.e. editing history) DOES, and the caller must run
+// recomputeProgressionState for the affected exercise afterwards.
+//
+// The recompute is left to callers rather than hidden in these functions because both edit
+// screens renumber set_index by calling updateSet in a loop; a recompute per call would replay
+// the exercise's whole history N times for one user action.
 
 export async function addSet(args: {
   workoutExerciseId: string;

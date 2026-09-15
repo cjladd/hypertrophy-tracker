@@ -5,8 +5,15 @@ import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } 
 import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
 import { debugRecoveryBreakdown } from "@/lib/ai/features";
 import { isProxyConfigured } from "@/lib/ai/trainer-config";
-import { clearErrorLog, formatErrorLog, getRecentErrors } from "@/lib/error-log";
-import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
+import { clearErrorLog, formatErrorLog, getRecentErrors, reportError } from "@/lib/error-log";
+import {
+    findProgressionCacheDrift,
+    getRoutineById,
+    getRoutineDays,
+    recomputeAllProgressionStates,
+    seedAllRoutines,
+    seedExercises,
+} from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -160,6 +167,53 @@ export default function SettingsScreen() {
     setLocalWeightJump("5");
     setWeightJumpLb(5);
     Alert.alert("Reset", "Settings restored to defaults.");
+  };
+
+  const handleCheckProgressionCache = async () => {
+    setBusy(true);
+    try {
+      const drift = await findProgressionCacheDrift();
+      if (drift.length === 0) {
+        Alert.alert(
+          "Progression cache OK",
+          "Every cached progression state matches a fresh replay of your workout history.",
+        );
+        return;
+      }
+
+      const detail = drift
+        .slice(0, 8)
+        .map((d) =>
+          d.field === "missing_row"
+            ? `${d.exerciseName}: no cached state (expected ${d.expected} lb)`
+            : `${d.exerciseName}: ${d.field} is ${d.cached}, should be ${d.expected}`,
+        )
+        .join("\n");
+
+      Alert.alert(
+        `${drift.length} drift issue${drift.length === 1 ? "" : "s"} found`,
+        `${detail}${drift.length > 8 ? `\n\n...and ${drift.length - 8} more` : ""}\n\n` +
+          'Run "Repair progression cache" to rebuild from history.',
+      );
+    } catch (e: any) {
+      void reportError(e, "settings.checkProgressionCache");
+      Alert.alert("Check failed", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRepairProgressionCache = async () => {
+    setBusy(true);
+    try {
+      await recomputeAllProgressionStates();
+      Alert.alert("Repaired", "Progression state rebuilt from workout history for all exercises.");
+    } catch (e: any) {
+      void reportError(e, "settings.repairProgressionCache");
+      Alert.alert("Repair failed", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleViewErrorLog = async () => {
@@ -453,6 +507,26 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Dev tools</Text>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleCheckProgressionCache}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Check progression cache</Text>
+          <Text style={styles.destructiveSubtext}>
+            Compares cached progression state against a fresh replay of your history
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleRepairProgressionCache}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Repair progression cache</Text>
+          <Text style={styles.destructiveSubtext}>Rebuilds progression state for every exercise</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.secondaryButton, busy && styles.disabledButton]}

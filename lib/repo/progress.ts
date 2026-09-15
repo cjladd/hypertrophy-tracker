@@ -118,10 +118,16 @@ export async function getLastExposureSets(exerciseId: string): Promise<Set[] | n
 }
 
 /**
- * Recompute progression state from workout history 
- * This MUST be called after any workout edit/delete to prevent drift
+ * Replay an exercise's full history through the progression engine and return the resulting
+ * state WITHOUT persisting it. This is the canonical definition of what progression_state
+ * should hold at any moment; the stored row is only ever a cache of this.
+ *
+ * Returns null if the exercise no longer exists.
  */
-export async function recomputeProgressionState(exerciseId: string, settings?: Settings): Promise<void> {
+export async function computeProgressionState(
+  exerciseId: string,
+  settings?: Settings
+): Promise<ProgressionState | null> {
   const db = await getDB();
 
   // Get exercise for rep range info
@@ -131,10 +137,7 @@ export async function recomputeProgressionState(exerciseId: string, settings?: S
     [exerciseId]
   );
 
-  if (!exercise) {
-    console.warn(`recomputeProgressionState: exercise ${exerciseId} not found`);
-    return;
-  }
+  if (!exercise) return null;
 
   // Get user settings for weightJumpLb
   const effectiveSettings = settings || await getSettings();
@@ -149,6 +152,21 @@ export async function recomputeProgressionState(exerciseId: string, settings?: S
   // Iterate through all exposures, applying progression logic
   for (const exposure of exposures) {
     state = processExposure(exposure, state, exercise, weightJumpLb);
+  }
+
+  return state;
+}
+
+/**
+ * Recompute progression state from workout history
+ * This MUST be called after any workout edit/delete to prevent drift
+ */
+export async function recomputeProgressionState(exerciseId: string, settings?: Settings): Promise<void> {
+  const state = await computeProgressionState(exerciseId, settings);
+
+  if (!state) {
+    console.warn(`recomputeProgressionState: exercise ${exerciseId} not found`);
+    return;
   }
 
   // Persist final state
@@ -177,6 +195,93 @@ export async function recomputeAllProgressionStates(settings?: Settings): Promis
   for (const { exercise_id } of exercisesWithHistory) {
     await recomputeProgressionState(exercise_id, effectiveSettings);
   }
+}
+
+/** The numeric fields of ProgressionState that a fresh replay must reproduce exactly. */
+type ProgressionStateField =
+  | 'last_weight_lb'
+  | 'stall_count'
+  | 'progression_ceiling'
+  | 'watch_next_exposure';
+
+export interface ProgressionCacheDrift {
+  exerciseId: string;
+  exerciseName: string;
+  /** 'missing_row' means history exists but nothing was ever cached for this exercise. */
+  field: ProgressionStateField | 'missing_row';
+  cached: number | null;
+  expected: number | null;
+}
+
+/**
+ * Diagnostic: compare every cached progression_state row against a fresh replay of history.
+ *
+ * progression_state is a cache whose correctness depends on every mutation path remembering to
+ * call recomputeProgressionState. That's a convention, not something the type system enforces,
+ * so this is the tool that actually checks it against real data. A non-empty result means some
+ * write path skipped its recompute and the user's weight suggestions are being computed from
+ * stale state.
+ *
+ * Read-only — it reports drift, it doesn't repair it. Run "Repair progression cache"
+ * (recomputeAllProgressionStates) to fix what it finds.
+ */
+export async function findProgressionCacheDrift(settings?: Settings): Promise<ProgressionCacheDrift[]> {
+  const db = await getDB();
+  const effectiveSettings = settings || await getSettings();
+
+  const exercisesWithHistory = await all<{ exercise_id: string; name: string }>(
+    db,
+    `SELECT DISTINCT we.exercise_id, e.name
+     FROM workout_exercises we
+     JOIN workouts w ON we.workout_id = w.id
+     JOIN exercises e ON e.id = we.exercise_id
+     WHERE w.ended_at IS NOT NULL`
+  );
+
+  const drift: ProgressionCacheDrift[] = [];
+
+  for (const { exercise_id, name } of exercisesWithHistory) {
+    const expected = await computeProgressionState(exercise_id, effectiveSettings);
+    if (!expected) continue;
+
+    const cached = await getProgressionState(exercise_id);
+
+    // An exercise with finished exposures but no cached row is itself drift — the suggestion
+    // path will silently fall back to first-time defaults.
+    if (!cached) {
+      drift.push({
+        exerciseId: exercise_id,
+        exerciseName: name,
+        field: 'missing_row',
+        cached: null,
+        expected: expected.last_weight_lb,
+      });
+      continue;
+    }
+
+    const fields: ProgressionStateField[] = [
+      'last_weight_lb',
+      'stall_count',
+      'progression_ceiling',
+      'watch_next_exposure',
+    ];
+
+    for (const field of fields) {
+      const cachedValue = cached[field] ?? null;
+      const expectedValue = expected[field] ?? null;
+      if (cachedValue !== expectedValue) {
+        drift.push({
+          exerciseId: exercise_id,
+          exerciseName: name,
+          field,
+          cached: cachedValue,
+          expected: expectedValue,
+        });
+      }
+    }
+  }
+
+  return drift;
 }
 
 /**
