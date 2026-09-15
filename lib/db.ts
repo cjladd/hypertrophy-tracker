@@ -299,6 +299,27 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
       CREATE INDEX IF NOT EXISTS idx_program_adjustments_status ON program_adjustments(status, suggested_at);
     `);
 
+    // =========================================================================
+    // Crash / error log — written by the root ErrorBoundary and reportError().
+    // Local only, never uploaded. Exists so a crash in the gym leaves a trace
+    // that can be read back from Settings -> Dev tools afterwards.
+    // =========================================================================
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS error_log (
+        id TEXT PRIMARY KEY,
+        message TEXT NOT NULL,
+        stack TEXT,
+        component_stack TEXT,
+        context TEXT,
+        app_version TEXT,
+        occurred_at INTEGER NOT NULL
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_error_log_occurred ON error_log(occurred_at);
+    `);
+
     console.log('Database tables initialized successfully');
   } catch (error) {
     console.error('Failed to create tables:', error);
@@ -325,6 +346,7 @@ export async function resetDB(): Promise<void> {
       DROP TABLE IF EXISTS ai_insights;
       DROP TABLE IF EXISTS program_adjustments;
       DROP TABLE IF EXISTS ai_settings;
+      DROP TABLE IF EXISTS error_log;
     `);
     await initializeTables(db);
     console.log('Database reset successfully');

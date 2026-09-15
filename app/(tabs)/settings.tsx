@@ -5,6 +5,7 @@ import { requestHealthPermissions, getHealthSyncStatus, type HealthSyncStatus } 
 import { testOnnxRuntime, testProgressionModel, testRecoveryModel } from "@/lib/ai/model-manager";
 import { debugRecoveryBreakdown } from "@/lib/ai/features";
 import { isProxyConfigured } from "@/lib/ai/trainer-config";
+import { clearErrorLog, formatErrorLog, getRecentErrors } from "@/lib/error-log";
 import { getRoutineById, getRoutineDays, seedAllRoutines, seedExercises } from "@/lib/repo";
 import type { Routine, RoutineDay } from "@/lib/types";
 import { Link, useFocusEffect } from "expo-router";
@@ -159,6 +160,38 @@ export default function SettingsScreen() {
     setLocalWeightJump("5");
     setWeightJumpLb(5);
     Alert.alert("Reset", "Settings restored to defaults.");
+  };
+
+  const handleViewErrorLog = async () => {
+    setBusy(true);
+    try {
+      const entries = await getRecentErrors(20);
+      if (entries.length === 0) {
+        Alert.alert("Error log", "No errors recorded. ");
+        return;
+      }
+
+      const text = await formatErrorLog();
+      Alert.alert(
+        `Error log (${entries.length})`,
+        text.length > 1200 ? `${text.slice(0, 1200)}\n\n...[truncated]` : text,
+        [
+          { text: "Close", style: "cancel" },
+          {
+            text: "Clear log",
+            style: "destructive",
+            onPress: async () => {
+              await clearErrorLog();
+              Alert.alert("Cleared", "Error log emptied.");
+            },
+          },
+        ],
+      );
+    } catch (e: any) {
+      Alert.alert("Error log", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleTestOnnx = async () => {
@@ -420,6 +453,16 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Dev tools</Text>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleViewErrorLog}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Error log</Text>
+          <Text style={styles.destructiveSubtext}>Recent crashes and caught errors, stored on-device only</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.destructiveButton, busy && styles.disabledButton]}
           onPress={confirmResetDb}

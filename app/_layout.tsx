@@ -1,6 +1,8 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { AIProvider } from "@/context/AIContext";
 import { SettingsProvider, useSettings } from "@/context/SettingsContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { reportError } from "@/lib/error-log";
 import { seedAllRoutines, seedExercises } from "@/lib/repo";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
@@ -39,6 +41,7 @@ export default function RootLayout() {
         console.log("Routines seeded");
       } catch (err) {
         console.error("Failed to seed data:", err);
+        void reportError(err, "bootstrap.seed");
         setDbError(String(err)); // Capture error to display
       } finally {
         setDbReady(true);
@@ -69,20 +72,28 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar barStyle="dark-content" />
       <SafeAreaProvider>
-        <SettingsProvider>
-          <AIProvider>
-            <KeyboardAvoidingView
-              style={{ flex: 1 }}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View style={{ flex: 1, backgroundColor: APP_BG }}>
-                <ThemeProvider value={appTheme}>
-                  <RootNavigator />
-                </ThemeProvider>
-              </View>
-            </KeyboardAvoidingView>
-          </AIProvider>
-        </SettingsProvider>
+        {/* Outer boundary: catches failures in the providers themselves (settings load,
+            AI refresh loop) which would otherwise blank the app before any screen mounts. */}
+        <ErrorBoundary context="providers">
+          <SettingsProvider>
+            <AIProvider>
+              <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+              >
+                <View style={{ flex: 1, backgroundColor: APP_BG }}>
+                  <ThemeProvider value={appTheme}>
+                    {/* Inner boundary: a screen-level throw retries without tearing down the
+                        providers, so an active workout survives the retry. */}
+                    <ErrorBoundary context="navigator">
+                      <RootNavigator />
+                    </ErrorBoundary>
+                  </ThemeProvider>
+                </View>
+              </KeyboardAvoidingView>
+            </AIProvider>
+          </SettingsProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
