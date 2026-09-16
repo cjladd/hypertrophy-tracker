@@ -17,6 +17,8 @@ import {
     findProgressionCacheDrift,
     getRoutineById,
     getRoutineDays,
+    getSuggestionLogStats,
+    getSuggestionOutcomes,
     recomputeAllProgressionStates,
     seedAllRoutines,
     seedExercises,
@@ -312,6 +314,83 @@ export default function SettingsScreen() {
     } catch (e: any) {
       void reportError(e, "settings.repairProgressionCache");
       Alert.alert("Repair failed", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSuggestionLogStats = async () => {
+    setBusy(true);
+    try {
+      const stats = await getSuggestionLogStats();
+
+      if (stats.totalLogged === 0) {
+        Alert.alert(
+          "Suggestion log empty",
+          "Nothing recorded yet. Rows are written when a progression suggestion is shown " +
+            "during a workout, and gain an outcome once that workout is finished.",
+        );
+        return;
+      }
+
+      const span =
+        stats.oldestAt && stats.newestAt
+          ? `${new Date(stats.oldestAt).toLocaleDateString()} – ${new Date(stats.newestAt).toLocaleDateString()}`
+          : "—";
+
+      // withOutcome is the number that actually becomes training rows; totalLogged includes
+      // exercises that were shown a suggestion but never attempted.
+      const followRate =
+        stats.withOutcome > 0 ? Math.round((stats.followed / stats.withOutcome) * 100) : 0;
+
+      Alert.alert(
+        "Suggestion log",
+        `${stats.totalLogged} suggestions logged across ${stats.distinctExercises} exercises\n` +
+          `${span}\n\n` +
+          `Usable training rows: ${stats.withOutcome}\n` +
+          `  Followed:  ${stats.followed} (${followRate}%)\n` +
+          `  Heavier:   ${stats.wentHeavier}\n` +
+          `  Overrode lighter: ${stats.overrodeLighter}\n` +
+          `  Not attempted: ${stats.notAttempted}\n\n` +
+          `Source: ${stats.bySource.ai} AI model / ${stats.bySource.rule_engine} rule engine`,
+      );
+    } catch (e: any) {
+      void reportError(e, "settings.suggestionLogStats");
+      Alert.alert("Suggestion log error", String(e?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDumpSuggestionOutcomes = async () => {
+    setBusy(true);
+    try {
+      const rows = await getSuggestionOutcomes(500);
+      if (rows.length === 0) {
+        Alert.alert("No outcomes yet", "Finish a workout that had progression suggestions first.");
+        return;
+      }
+
+      // Full rows to the Metro console — this is the shape the Phase 1.3 exporter will consume.
+      console.log("[suggestion outcomes]", JSON.stringify(rows, null, 2));
+
+      const overrides = rows.filter((r) => r.outcome === "overrode_lighter");
+      const preview = rows
+        .slice(0, 6)
+        .map(
+          (r) =>
+            `${r.exerciseName} (${r.source === "ai" ? "AI" : "rule"}): said ${r.suggestedWeightLb}lb, ` +
+            `${r.actualTopWeightLb === null ? "skipped" : `did ${r.actualTopWeightLb}lb x${r.actualTopReps}`} → ${r.outcome}`,
+        )
+        .join("\n\n");
+
+      Alert.alert(
+        `${rows.length} outcomes (${overrides.length} overrides)`,
+        `${preview}\n\nFull JSON dumped to the Metro console.`,
+      );
+    } catch (e: any) {
+      void reportError(e, "settings.dumpSuggestionOutcomes");
+      Alert.alert("Dump failed", String(e?.message ?? e));
     } finally {
       setBusy(false);
     }
@@ -639,6 +718,28 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Dev tools</Text>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleSuggestionLogStats}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Suggestion log</Text>
+          <Text style={styles.destructiveSubtext}>
+            How many recommended-vs-logged pairs have accumulated for the model retrain
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, busy && styles.disabledButton]}
+          onPress={handleDumpSuggestionOutcomes}
+          disabled={busy}
+        >
+          <Text style={styles.secondaryText}>Dump suggestion outcomes</Text>
+          <Text style={styles.destructiveSubtext}>
+            Prints every suggestion paired with what you actually lifted to the console
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.secondaryButton, busy && styles.disabledButton]}

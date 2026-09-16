@@ -46,6 +46,10 @@ const BACKUP_TABLES = [
   'workouts',
   'workout_exercises',
   'sets',
+  // Training data, not just diagnostics: the recommended-vs-logged pairing can't be
+  // reconstructed from anything else, so losing it costs the Phase 1.3 retrain its labels.
+  // FKs to workouts and exercises, so it must come after both.
+  'suggestion_log',
   'health_samples',
   'anomaly_log',
   'ai_insights',

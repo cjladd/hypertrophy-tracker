@@ -300,6 +300,47 @@ async function initializeTables(db: SQLite.SQLiteDatabase) {
     `);
 
     // =========================================================================
+    // Suggestion audit log — what the app RECOMMENDED, captured at the moment it was shown.
+    //
+    // The sets table records what the user actually did; nothing else records what they were
+    // told to do. That pairing is the strongest training label available for the Phase 1.3
+    // real-data retrain (an override — logging less than recommended — is the user telling you
+    // the recommendation was wrong), and it is NOT reconstructible after the fact: the AI-vs-
+    // rule-engine choice, the model confidence, and the weight_jump_lb in effect at that moment
+    // are all either non-deterministic or mutable-and-unversioned.
+    //
+    // Append-only. UNIQUE(workout_id, exercise_id) keeps the FIRST suggestion shown per
+    // exercise per workout, so repeated UI refreshes don't multiply rows. Outcome is not stored
+    // here — it's derived by joining to sets, so history edits correct the label automatically.
+    // =========================================================================
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS suggestion_log (
+        id TEXT PRIMARY KEY,
+        workout_id TEXT NOT NULL,
+        exercise_id TEXT NOT NULL,
+        suggested_weight_lb REAL NOT NULL,
+        suggested_ceiling INTEGER NOT NULL,
+        reason_code TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'rule_engine',
+        confidence REAL,
+        model_version TEXT,
+        weight_jump_lb REAL NOT NULL,
+        state_last_weight_lb REAL,
+        state_stall_count INTEGER,
+        state_ceiling INTEGER,
+        shown_at INTEGER NOT NULL,
+        UNIQUE(workout_id, exercise_id),
+        FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+      );
+    `);
+
+    await db.execAsync(`
+      CREATE INDEX IF NOT EXISTS idx_suggestion_log_exercise ON suggestion_log(exercise_id, shown_at);
+      CREATE INDEX IF NOT EXISTS idx_suggestion_log_workout ON suggestion_log(workout_id);
+    `);
+
+    // =========================================================================
     // Crash / error log — written by the root ErrorBoundary and reportError().
     // Local only, never uploaded. Exists so a crash in the gym leaves a trace
     // that can be read back from Settings -> Dev tools afterwards.
@@ -346,6 +387,7 @@ export async function resetDB(): Promise<void> {
       DROP TABLE IF EXISTS ai_insights;
       DROP TABLE IF EXISTS program_adjustments;
       DROP TABLE IF EXISTS ai_settings;
+      DROP TABLE IF EXISTS suggestion_log;
       DROP TABLE IF EXISTS error_log;
     `);
     await initializeTables(db);

@@ -23,6 +23,15 @@ const DUMMY_MODEL = require('@/assets/models/dummy_progression.onnx');
 
 // Trained progression classifier (Phase 1.2): 15-dim input -> [label, probabilities[3]].
 const PROGRESSION_MODEL = require('@/assets/models/progression_v1.onnx');
+
+/**
+ * Identifier for the progression model currently bundled. Stamped onto every logged
+ * suggestion so a later retrain can tell which model produced which recommendation — without
+ * it, rows from v1 and v2 would be indistinguishable in the training set.
+ * Bump this whenever the bundled .onnx changes.
+ */
+export const PROGRESSION_MODEL_VERSION = 'progression_v1';
+
 // Class order MUST match train_model.py ACTIONS and the export's probability-index order.
 export const PROGRESSION_CLASSES = ['INCREASE', 'HOLD', 'RESET'] as const;
 export type ProgressionAction = (typeof PROGRESSION_CLASSES)[number];

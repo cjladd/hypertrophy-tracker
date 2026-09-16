@@ -195,8 +195,8 @@ export default function LogWorkoutScreen() {
         const toSelect = firstIncomplete ?? workoutExercisesWithSets[0];
         setCurrentWorkoutExercise(toSelect);
 
-        // Get progression suggestion
-        const suggestion = await getProgressionSuggestion(toSelect.exercise_id);
+        // Get progression suggestion (logged to suggestion_log as shown in this workout)
+        const suggestion = await getProgressionSuggestion(toSelect.exercise_id, undefined, workout.id);
         setCurrentSuggestion(suggestion);
 
         // Set form values based on existing sets or suggestion
@@ -300,7 +300,7 @@ export default function LogWorkoutScreen() {
 
       // Get progression suggestion for first exercise
       if (i === 0) {
-        const suggestion = await getProgressionSuggestion(exerciseId);
+        const suggestion = await getProgressionSuggestion(exerciseId, undefined, workoutId);
         setCurrentSuggestion(suggestion);
         if (suggestion.suggestedWeightLb > 0) {
           setWeight(String(suggestion.suggestedWeightLb));
@@ -353,7 +353,7 @@ export default function LogWorkoutScreen() {
 
       // Get progression suggestion for first exercise
       if (i === 0) {
-        const suggestion = await getProgressionSuggestion(exerciseId);
+        const suggestion = await getProgressionSuggestion(exerciseId, undefined, workoutId);
         setCurrentSuggestion(suggestion);
         if (suggestion.suggestedWeightLb > 0) {
           setWeight(String(suggestion.suggestedWeightLb));
@@ -402,7 +402,7 @@ export default function LogWorkoutScreen() {
 
         // If the swapped slot is the active one, refresh the form + suggestion for it.
         if (currentWorkoutExercise?.id === targetId) {
-          const suggestion = await getProgressionSuggestion(exercise.id);
+          const suggestion = await getProgressionSuggestion(exercise.id, undefined, workoutId);
           setCurrentWorkoutExercise(swapped);
           setCurrentSuggestion(suggestion);
           setWeight(suggestion.suggestedWeightLb > 0 ? String(suggestion.suggestedWeightLb) : "");
@@ -461,7 +461,7 @@ export default function LogWorkoutScreen() {
       const workoutExercise = await addWorkoutExercise(workoutId, exercise.id, orderIndex);
 
       // Get progression suggestion for this exercise
-      const suggestion = await getProgressionSuggestion(exercise.id);
+      const suggestion = await getProgressionSuggestion(exercise.id, undefined, workoutId);
       setCurrentSuggestion(suggestion);
 
       const newWorkoutExercise: WorkoutExerciseWithSets = {
@@ -503,7 +503,7 @@ export default function LogWorkoutScreen() {
     setCurrentWorkoutExercise(workoutExercise);
 
     // Get progression suggestion for this exercise
-    const suggestion = await getProgressionSuggestion(workoutExercise.exercise_id);
+    const suggestion = await getProgressionSuggestion(workoutExercise.exercise_id, undefined, workoutId);
     setCurrentSuggestion(suggestion);
 
     // If sets already logged this session, use last set values

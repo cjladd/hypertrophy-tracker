@@ -4,7 +4,9 @@ import { ExposureData, generateSuggestion, getInitialProgressionState, processEx
 import { all, get, run } from '../sql';
 import { Exercise, ProgressionState, ProgressionSuggestion, Set, Settings } from '../types';
 import { getAIProgressionSuggestion } from '../ai/progression-ai';
+import { PROGRESSION_MODEL_VERSION } from '../ai/model-manager';
 import { getSettings } from './settings';
+import { recordSuggestionShown } from './suggestions';
 
 // ============================================
 // PROGRESSION STATE
@@ -287,8 +289,18 @@ export async function findProgressionCacheDrift(settings?: Settings): Promise<Pr
 /**
  * Get progression suggestion for an exercise
  * Returns suggested weight and reason code for UI display
+ *
+ * @param workoutId when provided, the returned suggestion is recorded to suggestion_log as
+ *   "shown to the user in this workout". Pass it from anywhere the number is actually put in
+ *   front of the user; omit it for background reads (trainer-chat context, insights) that
+ *   would otherwise log recommendations nobody saw. Recording lives here rather than at the
+ *   call sites because log.tsx alone fetches suggestions from six places.
  */
-export async function getProgressionSuggestion(exerciseId: string, settings?: Settings): Promise<ProgressionSuggestion> {
+export async function getProgressionSuggestion(
+  exerciseId: string,
+  settings?: Settings,
+  workoutId?: string | null
+): Promise<ProgressionSuggestion> {
   const db = await getDB();
 
   // Get exercise
@@ -321,11 +333,27 @@ export async function getProgressionSuggestion(exerciseId: string, settings?: Se
   // AI override (full-trust, gated by aiSuggestionsEnabled). Falls back to the rule engine
   // for first-time exercises, low confidence, or any runtime failure. Never mutates cached
   // progression_state — that stays rule-engine-derived and recomputable from history.
+  let finalSuggestion = ruleSuggestion;
   if (effectiveSettings.aiSuggestionsEnabled !== false && ruleSuggestion.reasonCode !== 'FIRST_TIME') {
     const aiSuggestion = await getAIProgressionSuggestion(exercise, state, effectiveSettings.weightJumpLb);
-    if (aiSuggestion) return aiSuggestion;
+    if (aiSuggestion) finalSuggestion = aiSuggestion;
   }
-  return ruleSuggestion;
+
+  // Audit what was shown, alongside the inputs that produced it. Awaited so the row is durable
+  // before the caller renders — recordSuggestionShown swallows its own errors, so this can't
+  // fail the suggestion.
+  if (workoutId) {
+    await recordSuggestionShown({
+      workoutId,
+      exerciseId,
+      suggestion: finalSuggestion,
+      weightJumpLb: effectiveSettings.weightJumpLb,
+      state,
+      modelVersion: PROGRESSION_MODEL_VERSION,
+    });
+  }
+
+  return finalSuggestion;
 }
 
 /**
